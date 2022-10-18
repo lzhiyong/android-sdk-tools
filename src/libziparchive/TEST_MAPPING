@@ -1,0 +1,18 @@
+{
+  "presubmit": [
+    {
+      "name": "ziparchive-tests"
+    }
+  ],
+  "hwasan-presubmit": [
+    {
+      "name": "ziparchive-tests"
+    }
+  ],
+
+  "postsubmit": [
+    {
+      "name": "ziparchive_tests_large"
+    }
+  ]
+}
