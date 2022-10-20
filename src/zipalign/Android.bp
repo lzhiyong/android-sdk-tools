@@ -1,0 +1,79 @@
+//
+// Copyright 2008 The Android Open Source Project
+//
+// Zip alignment tool
+//
+
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+cc_defaults {
+    name: "zipalign_defaults",
+    target: {
+        windows: {
+            host_ldlibs: ["-lpthread"],
+            enabled: true,
+        },
+    },
+}
+
+cc_library_host_static {
+    name: "libzipalign",
+    srcs: [
+        "ZipAlign.cpp",
+        "ZipEntry.cpp",
+        "ZipFile.cpp",
+    ],
+    export_include_dirs: [
+        "include",
+    ],
+    cflags: ["-Wall", "-Werror"],
+
+    // NOTE: Do not add any shared_libs dependencies because they will break the
+    // static_sdk_tools target.
+    whole_static_libs: [
+        "libutils",
+        "libcutils",
+        "liblog",
+        "libziparchive",
+        "libz",
+        "libbase",
+        "libzopfli",
+    ],
+    defaults: ["zipalign_defaults"],
+}
+
+cc_binary_host {
+    name: "zipalign",
+    srcs: [
+        "ZipAlignMain.cpp",
+    ],
+    cflags: ["-Wall", "-Werror"],
+    static_libs: [
+        "libzipalign",
+    ],
+    defaults: ["zipalign_defaults"],
+}
+
+cc_test_host {
+    name: "zipalign_tests",
+    srcs: [
+        "tests/src/*_test.cpp",
+    ],
+    test_options: {
+        unit_test: true,
+    },
+    static_libs: [
+        "libbase",
+        "libzipalign",
+        "libgmock",
+    ],
+    data: [
+         "tests/data/diffOrders.zip",
+         "tests/data/holes.zip",
+         "tests/data/unaligned.zip",
+    ],
+    defaults: ["zipalign_defaults"],
+    test_suites: ["general-tests"],
+}
