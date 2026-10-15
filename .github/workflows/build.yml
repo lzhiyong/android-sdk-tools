@@ -1,0 +1,208 @@
+name: build
+
+on:
+  push:
+    branches: [ master, main ]
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE.txt'
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      toolchain:
+        description: 'toolchain'
+        type: choice
+        options: [ ndk, zig ]
+        default: ndk
+      release:
+        description: 'publish to GitHub Releases'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+env:
+  TOOLCHAIN: ${{ inputs.toolchain || 'ndk' }}
+  LINK: static
+  NDK_VERSION: r27c
+  ZIG_VERSION: 0.13.0
+  CMAKE_POLICY_VERSION_MINIMUM: '3.5'
+
+jobs:
+  # read the version, fetch the AOSP sources and build the host protoc once,
+  # then share them with every build job through the cache
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      cache-key: ${{ steps.version.outputs.cache-key }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read PLATFORM_TOOLS_VERSION
+        id: version
+        run: |
+          VERSION=$(sed -nE 's/^[[:space:]]*#define[[:space:]]+PLATFORM_TOOLS_VERSION[[:space:]]+"([^"]+)".*/\1/p' \
+            patches/misc/platform_tools_version.h | head -n 1)
+          if [ -z "$VERSION" ]; then
+            echo "::error::PLATFORM_TOOLS_VERSION not found in patches/misc/platform_tools_version.h"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "cache-key=sources-$VERSION-${{ hashFiles('repository.json', 'get_source.py', 'build.py', 'patches/**') }}" >> "$GITHUB_OUTPUT"
+          echo "platform-tools version: $VERSION"
+
+      - name: Check sources cache
+        id: cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            src
+            !src/**/.git
+            host-tools
+          key: ${{ steps.version.outputs.cache-key }}
+          lookup-only: true
+
+      - name: Install dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ninja-build bison flex patch
+
+      - name: Setup Go
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: false
+
+      - name: Fetch sources
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: python3 get_source.py --tags "platform-tools-${{ steps.version.outputs.version }}"
+
+      - name: Build host protoc
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: python3 build.py --protoc-only --protoc-output host-tools/protoc
+
+      - name: Save sources cache
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            src
+            !src/**/.git
+            host-tools
+          key: ${{ steps.version.outputs.cache-key }}
+
+  build:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [ aarch64, arm, x86_64, i686 ]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /opt/hostedtoolcache/CodeQL || true
+          df -h /
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ninja-build bison flex
+
+      # boringssl may look for go at configure time
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: false
+
+      - name: Restore sources
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            src
+            !src/**/.git
+            host-tools
+          key: ${{ needs.prepare.outputs.cache-key }}
+          fail-on-cache-miss: true
+
+      - name: Setup NDK
+        id: ndk
+        if: env.TOOLCHAIN == 'ndk'
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: ${{ env.NDK_VERSION }}
+          add-to-path: false
+
+      - name: Setup zig
+        if: env.TOOLCHAIN == 'zig'
+        uses: mlugg/setup-zig@v1
+        with:
+          version: ${{ env.ZIG_VERSION }}
+
+      - name: Build
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+        run: |
+          python3 build.py \
+            --toolchain "$TOOLCHAIN" \
+            --arch "${{ matrix.arch }}" \
+            --link "$LINK" \
+            --protoc host-tools/protoc \
+            --output-dir dist
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-sdk-tools-${{ env.LINK }}-${{ matrix.arch }}
+          path: dist/android-sdk-tools-${{ env.LINK }}-${{ matrix.arch }}.zip
+          if-no-files-found: error
+
+  release:
+    needs: [ prepare, build ]
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.release)
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: android-sdk-tools-*
+          path: dist
+          merge-multiple: true
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          TAG="$VERSION"
+          TITLE="v$VERSION"
+          ls -l dist
+
+          # the release notes are always the latest commit (replaced, never appended)
+          git log -1 --format='%B' "$GITHUB_SHA" > notes.md
+          printf '\nCommit: %s\n' "$GITHUB_SHA" >> notes.md
+
+          # point the tag at the commit that produced these binaries
+          git push --force origin "$GITHUB_SHA:refs/tags/$TAG"
+
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "release $TAG exists, PLATFORM_TOOLS_VERSION unchanged: overwrite the assets"
+            gh release edit "$TAG" --title "$TITLE" --notes-file notes.md
+            gh release upload "$TAG" dist/*.zip --clobber
+          else
+            echo "create release $TAG"
+            gh release create "$TAG" dist/*.zip --title "$TITLE" --notes-file notes.md --verify-tag
+          fi

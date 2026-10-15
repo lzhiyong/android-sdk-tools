@@ -1,0 +1,19 @@
+--- b/src/openscreen/platform/api/task_runner.h	2023-09-20 20:53:09.743134193 +0800
++++ b/src/openscreen/platform/api/task_runner.h	2023-09-20 19:14:39.817271748 +0800
+@@ -24,13 +24,14 @@
+  public:
+ // Seem to get an error using clang when compiling with -fno-exceptions:
+ //   error: implicit instantiation of undefined template 'std::__1::packaged_task<void () noexcept>'
+-
++/*
+ #if __has_feature(cxx_exceptions)
+   using Task = std::packaged_task<void() noexcept>;
+ #else
+   using Task = std::packaged_task<void()>;
+ #endif
+-
++*/
++  using Task = std::packaged_task<void()>;
+   virtual ~TaskRunner() = default;
+ 
+   // Takes any callable target (function, lambda-expression, std::bind result,

@@ -1,0 +1,81 @@
+# Deletes old workflow run records (their logs and artifacts go with them) once a month.
+# Only finished runs are deleted; queued or running ones, including this run, are never touched.
+# Releases, tags and Actions caches are not affected.
+name: Cleanup workflow runs
+
+on:
+  schedule:
+    - cron: '20 3 1 * *'   # 03:20 UTC on the 1st of every month; adjust as needed
+  workflow_dispatch:       # Run it by hand from the Actions tab, optionally as a dry run
+    inputs:
+      keep_days:
+        description: 'Keep runs newer than this many days (0 = delete every finished run)'
+        required: false
+        default: '0'
+      dry_run:
+        description: 'Only list what would be deleted'
+        type: boolean
+        required: false
+        default: false
+
+# Deleting workflow runs needs the actions scope; nothing else is required
+permissions:
+  actions: write
+
+# Never run two cleanups at once
+concurrency:
+  group: cleanup-runs
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}                # Auth for the gh CLI
+      KEEP_DAYS: ${{ inputs.keep_days || '0' }}    # Scheduled runs have no inputs: delete everything finished
+      DRY_RUN: ${{ inputs.dry_run || 'false' }}
+    steps:
+      - name: Delete finished workflow runs
+        run: |
+          set -euo pipefail
+
+          if ! [[ "$KEEP_DAYS" =~ ^[0-9]+$ ]]; then
+            echo "keep_days must be a non-negative integer, got '$KEEP_DAYS'" >&2
+            exit 1
+          fi
+
+          # Runs created before this moment are deleted (ISO 8601 strings compare correctly as text)
+          CUTOFF=$(date -u -d "$KEEP_DAYS days ago" +%Y-%m-%dT%H:%M:%SZ)
+          echo "Deleting finished runs created before $CUTOFF (keep_days=$KEEP_DAYS, dry_run=$DRY_RUN)"
+
+          # List every run of the repository. The query deliberately has no status filter:
+          # the API caps filtered searches at 1000 results, a plain listing is paginated fully.
+          ids=$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs?per_page=100" \
+                  --jq ".workflow_runs[] | select(.status == \"completed\" and .created_at < \"$CUTOFF\") | .id")
+
+          if [ -z "$ids" ]; then
+            echo "Nothing to delete"
+            exit 0
+          fi
+          echo "Found $(printf '%s\n' "$ids" | wc -l) run(s) to delete"
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "Dry run, these run ids would be deleted:"
+            printf '%s\n' "$ids"
+            exit 0
+          fi
+
+          deleted=0
+          failed=0
+          for id in $ids; do
+            if gh api -X DELETE "repos/$GITHUB_REPOSITORY/actions/runs/$id" --silent 2>/dev/null; then
+              deleted=$((deleted + 1))
+            else
+              failed=$((failed + 1))
+              echo "Could not delete run $id" >&2
+            fi
+          done
+
+          echo "Deleted $deleted run(s), $failed failed"
+          # Fail the job only if something went wrong, so the problem shows up in the Actions list
+          [ "$failed" -eq 0 ]
