@@ -14,7 +14,10 @@
 # limitations under the License.
 #
 
-add_library(libprocessgroup STATIC
+# Android 15 and earlier used the cgrouprc_format/cgrouprc source layout.
+# Android 16+ consolidated the implementation under cgrouprc/ and util/.
+# Keep both layouts supported and only pass files present in the selected tag.
+set(LIBPROCESSGROUP_SOURCE_CANDIDATES
     ${SRC}/core/libprocessgroup/cgroup_map.cpp
     ${SRC}/core/libprocessgroup/processgroup.cpp
     ${SRC}/core/libprocessgroup/sched_policy.cpp
@@ -22,9 +25,27 @@ add_library(libprocessgroup STATIC
     ${SRC}/core/libprocessgroup/cgrouprc_format/cgroup_controller.cpp
     ${SRC}/core/libprocessgroup/cgrouprc/cgroup_controller.cpp
     ${SRC}/core/libprocessgroup/cgrouprc/cgroup_file.cpp
-    )
+    ${SRC}/core/libprocessgroup/cgrouprc/a_cgroup_controller.cpp
+    ${SRC}/core/libprocessgroup/cgrouprc/a_cgroup_file.cpp
+    ${SRC}/core/libprocessgroup/util/cgroup_controller.cpp
+    ${SRC}/core/libprocessgroup/util/cgroup_descriptor.cpp
+    ${SRC}/core/libprocessgroup/util/util.cpp
+)
 
-target_include_directories(libprocessgroup PRIVATE 
+set(LIBPROCESSGROUP_SOURCES)
+foreach(source IN LISTS LIBPROCESSGROUP_SOURCE_CANDIDATES)
+    if(EXISTS "${source}")
+        list(APPEND LIBPROCESSGROUP_SOURCES "${source}")
+    endif()
+endforeach()
+
+if(NOT LIBPROCESSGROUP_SOURCES)
+    message(FATAL_ERROR "No libprocessgroup sources found under ${SRC}/core/libprocessgroup")
+endif()
+
+add_library(libprocessgroup STATIC ${LIBPROCESSGROUP_SOURCES})
+
+target_include_directories(libprocessgroup PRIVATE
     ${SRC}/core/libprocessgroup/include
     ${SRC}/core/libprocessgroup/cgrouprc/include
     ${SRC}/core/libprocessgroup/cgrouprc_format/include
@@ -32,7 +53,7 @@ target_include_directories(libprocessgroup PRIVATE
     ${SRC}/libbase/include
     ${SRC}/core/libcutils/include
     ${SRC}/jsoncpp/include
-    )
+)
 target_include_directories(libprocessgroup PRIVATE
     ${SRC}/core/libprocessgroup
-    )
+)
