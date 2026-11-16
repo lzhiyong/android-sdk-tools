@@ -202,6 +202,6 @@ jobs:
             gh release edit "$TAG" --title "$VERSION" --notes-file notes.md --draft
             gh release upload "$TAG" dist/* --clobber
           else
-            gh release create "$TAG" dist/platform-tools-"$VERSION".tar.gz dist/build-tools-"$VERSION".zip \
+            gh release create "$TAG" dist/* \
               --title "$VERSION" --notes-file notes.md --draft --verify-tag
           fi
