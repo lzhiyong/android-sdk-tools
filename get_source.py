@@ -190,6 +190,47 @@ def ensure_art_metrics_memory_order_compat():
         raise RuntimeError('malformed std::memory_order enumerator remains in {}'.format(path))
 
 
+
+def ensure_art_hash_set_allocator_compat():
+    """Use allocator_traits instead of allocator members removed in C++20."""
+    path = ROOT / 'src/art/libartbase/base/hash_set.h'
+    if not path.exists():
+        raise RuntimeError('ART hash_set.h not found: {}'.format(path))
+
+    text = path.read_text()
+    destroy_pattern = (
+        r'allocfn_\\.destroy\\(\\s*allocfn_\\.address\\(\\s*([^()]+?)\\s*\\)\\s*\\)\\s*;'
+    )
+    construct_pattern = (
+        r'allocfn_\\.construct\\(\\s*allocfn_\\.address\\(\\s*([^()]+?)\\s*\\)\\s*\\)\\s*;'
+    )
+    text, destroyed = re.subn(
+        destroy_pattern,
+        r'std::allocator_traits<allocator_type>::destroy(allocfn_, std::addressof(\\1));',
+        text,
+    )
+    text, constructed = re.subn(
+        construct_pattern,
+        r'std::allocator_traits<allocator_type>::construct(allocfn_, std::addressof(\\1));',
+        text,
+    )
+    if destroyed + constructed == 0 and re.search(r'allocfn_\\.(?:construct|destroy)\\s*\\(', text):
+        raise RuntimeError('unrecognized legacy allocator calls in {}'.format(path))
+    if destroyed + constructed:
+        path.write_text(text)
+        print(
+            'ART HashSet: migrated {} allocator construct and {} destroy calls to allocator_traits'.format(
+                constructed, destroyed
+            ),
+            flush=True,
+        )
+
+    verified = path.read_text()
+    if re.search(r'allocfn_\\.(?:construct|destroy|address)\\s*\\(', verified):
+        raise RuntimeError('C++20-incompatible allocator member remains in {}'.format(path))
+
+
+
 def patches():
     inc = ROOT / 'src/incremental_delivery/sysprop/include'
     inc.mkdir(parents=True, exist_ok=True)
@@ -221,6 +262,7 @@ def patches():
     ensure_art_build_defines()
     ensure_openscreen_task_runner_compat()
     ensure_art_metrics_memory_order_compat()
+    ensure_art_hash_set_allocator_compat()
 
 
 def main():
