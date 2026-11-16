@@ -48,18 +48,33 @@ def clone(repo, default_branch, retries):
     path = ROOT / repo['path']
     if path.exists():
         return '{} already exists, skip'.format(repo['path'])
-    # a repo can pin its own branch/tag (e.g. zlib), otherwise use the AOSP tag
-    branch = repo.get('branch', default_branch)
-    command = ['git', 'clone', '-q', '-c', 'advice.detachedHead=false',
-               '--depth', '1', '--branch', branch, repo['url'], str(path)]
-    for attempt in range(1, retries + 1):
-        result = subprocess.run(command, capture_output=True, text=True)
-        if result.returncode == 0:
-            return 'cloned {} ({})'.format(repo['path'], branch)
-        shutil.rmtree(path, ignore_errors=True)
-        if attempt < retries:
-            time.sleep(5 * attempt)
-    raise RuntimeError('failed to clone {} ({}):\n{}'.format(repo['url'], branch, result.stderr))
+
+    # Most dependencies follow the Android release snapshot. The adb module
+    # also publishes Platform Tools refs, which are more accurate for adb
+    # itself than the superproject snapshot. Prefer that ref when available,
+    # then fall back to the shared AOSP snapshot for canary/unpublished tags.
+    branches = [repo.get('branch', default_branch)]
+    if repo['path'] == 'src/adb' and 'branch' not in repo:
+        version = tools_version()
+        adb_version = '37.0.1' if version == '37.0.2' else version
+        adb_ref = 'platform-tools-' + adb_version
+        if adb_ref not in branches:
+            branches.insert(0, adb_ref)
+
+    last_error = ''
+    for branch in branches:
+        command = ['git', 'clone', '-q', '-c', 'advice.detachedHead=false',
+                   '--depth', '1', '--branch', branch, repo['url'], str(path)]
+        for attempt in range(1, retries + 1):
+            result = subprocess.run(command, capture_output=True, text=True)
+            if result.returncode == 0:
+                return 'cloned {} ({})'.format(repo['path'], branch)
+            last_error = result.stderr
+            shutil.rmtree(path, ignore_errors=True)
+            if attempt < retries:
+                time.sleep(5 * attempt)
+    raise RuntimeError('failed to clone {} (tried {}):\n{}'.format(
+        repo['url'], ', '.join(branches), last_error))
 
 
 def replace_in_file(path, old, new):
