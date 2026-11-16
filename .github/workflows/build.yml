@@ -1,5 +1,10 @@
 name: build
 
+# Keep only the newest build for each version branch; source builds are expensive.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [ master, main, platform-tools-35.0.2, platform-tools-36.0.0 ]
