@@ -178,7 +178,7 @@ def ensure_art_metrics_memory_order_compat():
     text = path.read_text()
     fixed = re.sub(
         r'std::memory_order::(memory_order_(?:relaxed|consume|acquire|release|acq_rel|seq_cst))',
-        r'std::\\1',
+        r'std::\1',
         text,
     )
     if fixed != text:
