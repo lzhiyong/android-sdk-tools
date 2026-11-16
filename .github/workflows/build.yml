@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [ master, main, platform-tools-35.0.2, platform-tools-36.0.0, platform-tools-36.0.1 ]
+    branches: [ master, main, platform-tools-35.0.2, platform-tools-36.0.0, platform-tools-36.0.1, platform-tools-37.0.0 ]
     paths-ignore:
       - '**.md'
       - 'LICENSE.txt'
@@ -47,8 +47,8 @@ jobs:
             echo "::error::PLATFORM_TOOLS_VERSION not found"
             exit 1
           fi
-          # Platform Tools 36.x uses Android 16 source snapshots because AOSP
-          # does not publish platform-tools-* source refs for this release line.
+          # Platform Tools 36.x and later use Android release source snapshots because
+          # AOSP does not publish platform-tools-* refs for these release lines.
           # repository.json entries may still pin independent refs.
           SOURCE_TAG="platform-tools-$VERSION"
           if [ "$VERSION" = "35.0.0" ]; then
@@ -57,6 +57,8 @@ jobs:
             SOURCE_TAG="android-16.0.0_r1"
           elif [ "$VERSION" = "36.0.1" ]; then
             SOURCE_TAG="android-16.0.0_r4"
+          elif [ "$VERSION" = "37.0.0" ]; then
+            SOURCE_TAG="android-17.0.0_r1"
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "source-tag=$SOURCE_TAG" >> "$GITHUB_OUTPUT"
