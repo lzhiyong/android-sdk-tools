@@ -193,7 +193,7 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           set -euo pipefail
-          TAG="$VERSION"
+          TAG="platform-tools-$VERSION"
           git push --force origin "$GITHUB_SHA:refs/tags/$TAG"
           NOTES="Release packages for Android Platform Tools $VERSION and Build Tools $VERSION."
           printf '%s\n\nCommit: %s\n' "$NOTES" "$GITHUB_SHA" > notes.md
