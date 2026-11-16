@@ -1,5 +1,5 @@
---- a/libprocessgroup/cgroup_map.cpp
-+++ b/libprocessgroup/cgroup_map.cpp
+--- a/core/libprocessgroup/cgroup_map.cpp
++++ b/core/libprocessgroup/cgroup_map.cpp
 @@ -222,9 +222,11 @@
          const ACgroupController* controller = ACgroupFile_getController(i);
          const uint32_t flags = ACgroupController_getFlags(controller);
