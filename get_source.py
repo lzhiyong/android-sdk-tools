@@ -153,7 +153,7 @@ def ensure_openscreen_task_runner_compat():
 
     text = path.read_text()
     fixed = re.sub(
-        r'std::packaged_task\\s*<\\s*void\\s*\\(\\s*\\)\\s*noexcept\\s*>',
+        r'std::packaged_task\s*<\s*void\s*\(\s*\)\s*noexcept\s*>',
         'std::packaged_task<void()>',
         text,
     )
@@ -162,9 +162,9 @@ def ensure_openscreen_task_runner_compat():
         print('Open Screen standalone build: normalized packaged_task<void() noexcept>', flush=True)
 
     verified = path.read_text()
-    if not re.search(r'using\\s+Task\\s*=\\s*std::packaged_task\\s*<\\s*void\\s*\\(\\s*\\)\\s*>\\s*;', verified):
+    if not re.search(r'using\s+Task\s*=\s*std::packaged_task\s*<\s*void\s*\(\s*\)\s*>\s*;', verified):
         raise RuntimeError('Open Screen Task alias is not compatible with NDK libc++: {}'.format(path))
-    if re.search(r'using\\s+Task\\s*=\\s*std::packaged_task\\s*<\\s*void\\s*\\(\\s*\\)\\s*noexcept\\s*>', verified):
+    if re.search(r'using\s+Task\s*=\s*std::packaged_task\s*<\s*void\s*\(\s*\)\s*noexcept\s*>', verified):
         raise RuntimeError('unsupported noexcept packaged_task alias remains in {}'.format(path))
 
 
