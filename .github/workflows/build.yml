@@ -185,6 +185,7 @@ jobs:
             --artifacts artifacts \
             --output dist
           ls -lh dist
+          test "$(find dist -maxdepth 1 -type f | wc -l)" -eq 8
 
       - name: Publish complete SDK packages as a draft release
         env:
@@ -199,7 +200,7 @@ jobs:
 
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --title "$VERSION" --notes-file notes.md --draft
-            gh release upload "$TAG" dist/platform-tools-"$VERSION".tar.gz dist/build-tools-"$VERSION".zip --clobber
+            gh release upload "$TAG" dist/* --clobber
           else
             gh release create "$TAG" dist/platform-tools-"$VERSION".tar.gz dist/build-tools-"$VERSION".zip \
               --title "$VERSION" --notes-file notes.md --draft --verify-tag
