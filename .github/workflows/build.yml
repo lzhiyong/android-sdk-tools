@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [ master, main, platform-tools-35.0.2 ]
+    branches: [ master, main, platform-tools-35.0.2, platform-tools-36.0.0 ]
     paths-ignore:
       - '**.md'
       - 'LICENSE.txt'
@@ -47,12 +47,14 @@ jobs:
             echo "::error::PLATFORM_TOOLS_VERSION not found"
             exit 1
           fi
-          # Google publishes the 35.0.0 SDK archive, but the corresponding
-          # platform-tools-35.0.0 source ref is absent from AOSP repositories.
-          # The first available source snapshot for this release line is 35.0.1.
+          # Starting with Platform Tools 36.0.0, AOSP no longer publishes
+          # platform-tools-* source refs. Use the Android 16 release manifest
+          # snapshot; repository.json entries may still pin independent refs.
           SOURCE_TAG="platform-tools-$VERSION"
           if [ "$VERSION" = "35.0.0" ]; then
             SOURCE_TAG="platform-tools-35.0.1"
+          elif [ "$VERSION" = "36.0.0" ]; then
+            SOURCE_TAG="android-16.0.0_r1"
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "source-tag=$SOURCE_TAG" >> "$GITHUB_OUTPUT"
