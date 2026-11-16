@@ -109,6 +109,17 @@ def main():
             shutil.copytree(official_pt, pt_root)
             shutil.copytree(official_bt, bt_root)
 
+            # Keep the official Java tools/resources intact; adapt only launcher shebangs
+            # for Android's shell environment.
+            for launcher in ("d8", "apksigner"):
+                launcher_path = bt_root / launcher
+                if launcher_path.is_file():
+                    data = launcher_path.read_bytes()
+                    if data.startswith(b"#!"):
+                        _, separator, remainder = data.partition(b"\\n")
+                        if separator:
+                            launcher_path.write_bytes(b"#!/system/bin/env sh\\n" + remainder)
+
             for group, names in GROUPS.items():
                 destination_root = pt_root if group == "platform-tools" else bt_root
                 for name in names:
