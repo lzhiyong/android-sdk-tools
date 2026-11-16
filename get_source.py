@@ -109,14 +109,14 @@ def ensure_art_build_defines():
     }
     missing = []
     for name, value in definitions.items():
-        if not re.search(r'^\\s*#\\s*define\\s+' + re.escape(name) + r'\\b', text, re.M):
+        if not re.search(r'^\s*#\s*define\s+' + re.escape(name) + r'\b', text, re.M):
             missing.append('#define {} {}'.format(name, value))
 
     if missing:
         block = (
-            '// Standalone NDK build equivalents of the defines normally supplied by Soong.\\n'
-            + '\\n'.join(missing)
-            + '\\n\\n'
+            '// Standalone NDK build equivalents of the defines normally supplied by Soong.\n'
+            + '\n'.join(missing)
+            + '\n\n'
         )
         text = text.replace(marker, block + marker, 1)
         path.write_text(text)
