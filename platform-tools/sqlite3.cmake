@@ -14,11 +14,23 @@
 # limitations under the License.
 #
 
-add_executable(sqlite3 
-    ${SRC}/sqlite/dist/sqlite-default/sqlite3.c
-    ${SRC}/sqlite/dist/sqlite-default/shell.c
-    )
-    
+# AOSP moved the SQLite amalgamation between source revisions.
+set(SQLITE_DIST "${SRC}/sqlite/dist/sqlite-default")
+if(NOT EXISTS "${SQLITE_DIST}/sqlite3.c")
+    set(SQLITE_DIST "${SRC}/sqlite/dist")
+endif()
+if(NOT EXISTS "${SQLITE_DIST}/sqlite3.c")
+    set(SQLITE_DIST "${SRC}/sqlite")
+endif()
+if(NOT EXISTS "${SQLITE_DIST}/sqlite3.c" OR NOT EXISTS "${SQLITE_DIST}/shell.c")
+    message(FATAL_ERROR "SQLite amalgamation not found in the checked-out AOSP source revision")
+endif()
+
+add_executable(sqlite3
+    ${SQLITE_DIST}/sqlite3.c
+    ${SQLITE_DIST}/shell.c
+)
+
 target_compile_definitions(sqlite3 PRIVATE 
     -DNDEBUG=1
     -DHAVE_USLEEP=1
