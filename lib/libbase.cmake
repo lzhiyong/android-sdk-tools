@@ -15,6 +15,7 @@
 #
 
 add_library(libbase STATIC
+    ${CMAKE_CURRENT_LIST_DIR}/libbase_result_compat.cpp
     ${SRC}/libbase/abi_compatibility.cpp
     ${SRC}/libbase/chrono_utils.cpp
     ${SRC}/libbase/cmsg.cpp
@@ -27,7 +28,6 @@ add_library(libbase STATIC
     ${SRC}/libbase/posix_strerror_r.cpp
     ${SRC}/libbase/process.cpp
     ${SRC}/libbase/properties.cpp
-    ${SRC}/libbase/result.cpp
     ${SRC}/libbase/stringprintf.cpp
     ${SRC}/libbase/strings.cpp
     ${SRC}/libbase/threads.cpp
