@@ -199,22 +199,22 @@ def ensure_art_hash_set_allocator_compat():
 
     text = path.read_text()
     destroy_pattern = (
-        r'allocfn_\\.destroy\\(\\s*allocfn_\\.address\\(\\s*([^()]+?)\\s*\\)\\s*\\)\\s*;'
+        r'allocfn_\.destroy\(\s*allocfn_\.address\(\s*([^()]+?)\s*\)\s*\)\s*;'
     )
     construct_pattern = (
-        r'allocfn_\\.construct\\(\\s*allocfn_\\.address\\(\\s*([^()]+?)\\s*\\)\\s*\\)\\s*;'
+        r'allocfn_\.construct\(\s*allocfn_\.address\(\s*([^()]+?)\s*\)\s*\)\s*;'
     )
     text, destroyed = re.subn(
         destroy_pattern,
-        r'std::allocator_traits<allocator_type>::destroy(allocfn_, std::addressof(\\1));',
+        r'std::allocator_traits<allocator_type>::destroy(allocfn_, std::addressof(\1));',
         text,
     )
     text, constructed = re.subn(
         construct_pattern,
-        r'std::allocator_traits<allocator_type>::construct(allocfn_, std::addressof(\\1));',
+        r'std::allocator_traits<allocator_type>::construct(allocfn_, std::addressof(\1));',
         text,
     )
-    if destroyed + constructed == 0 and re.search(r'allocfn_\\.(?:construct|destroy)\\s*\\(', text):
+    if destroyed + constructed == 0 and re.search(r'allocfn_\.(?:construct|destroy)\s*\(', text):
         raise RuntimeError('unrecognized legacy allocator calls in {}'.format(path))
     if destroyed + constructed:
         path.write_text(text)
@@ -226,10 +226,8 @@ def ensure_art_hash_set_allocator_compat():
         )
 
     verified = path.read_text()
-    if re.search(r'allocfn_\\.(?:construct|destroy|address)\\s*\\(', verified):
+    if re.search(r'allocfn_\.(?:construct|destroy|address)\s*\(', verified):
         raise RuntimeError('C++20-incompatible allocator member remains in {}'.format(path))
-
-
 
 def patches():
     inc = ROOT / 'src/incremental_delivery/sysprop/include'
