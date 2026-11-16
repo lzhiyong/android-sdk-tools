@@ -76,8 +76,15 @@ def main():
             f"https://dl.google.com/android/repository/platform-tools_r{args.version}-linux.zip",
             pt_zip,
         )
+        # Google omits the trailing .0.0 in the archive filename for
+        # the initial major Build Tools release (for example, 35.0.0 is
+        # published as build-tools_r35_linux.zip). Patch releases retain
+        # their full version in the filename (35.0.1 -> build-tools_r35.0.1_linux.zip).
+        build_tools_archive_version = args.version
+        if args.version.endswith(".0.0"):
+            build_tools_archive_version = args.version.rsplit(".", 2)[0]
         download(
-            f"https://dl.google.com/android/repository/build-tools_r{args.version}_linux.zip",
+            f"https://dl.google.com/android/repository/build-tools_r{build_tools_archive_version}_linux.zip",
             bt_zip,
         )
 
