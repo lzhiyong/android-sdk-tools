@@ -168,6 +168,28 @@ def ensure_openscreen_task_runner_compat():
         raise RuntimeError('unsupported noexcept packaged_task alias remains in {}'.format(path))
 
 
+
+def ensure_art_metrics_memory_order_compat():
+    """Normalize malformed ART memory_order enum qualification for libc++."""
+    path = ROOT / 'src/art/libartbase/base/metrics/metrics.h'
+    if not path.exists():
+        raise RuntimeError('ART metrics.h not found: {}'.format(path))
+
+    text = path.read_text()
+    fixed = re.sub(
+        r'std::memory_order::(memory_order_(?:relaxed|consume|acquire|release|acq_rel|seq_cst))',
+        r'std::\\1',
+        text,
+    )
+    if fixed != text:
+        path.write_text(fixed)
+        print('ART metrics: normalized malformed std::memory_order enumerators', flush=True)
+
+    verified = path.read_text()
+    if re.search(r'std::memory_order::memory_order_', verified):
+        raise RuntimeError('malformed std::memory_order enumerator remains in {}'.format(path))
+
+
 def patches():
     inc = ROOT / 'src/incremental_delivery/sysprop/include'
     inc.mkdir(parents=True, exist_ok=True)
@@ -198,6 +220,7 @@ def patches():
 
     ensure_art_build_defines()
     ensure_openscreen_task_runner_compat()
+    ensure_art_metrics_memory_order_compat()
 
 
 def main():
