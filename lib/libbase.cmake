@@ -27,6 +27,7 @@ add_library(libbase STATIC
     ${SRC}/libbase/posix_strerror_r.cpp
     ${SRC}/libbase/process.cpp
     ${SRC}/libbase/properties.cpp
+    ${SRC}/libbase/result.cpp
     ${SRC}/libbase/stringprintf.cpp
     ${SRC}/libbase/strings.cpp
     ${SRC}/libbase/threads.cpp
