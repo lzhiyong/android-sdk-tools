@@ -57,6 +57,17 @@ endif()
 # ========================= adb proto ============================
 
 
+# Open Screen client files are optional in newer ADB revisions, where
+# mDNS handling moved to the in-tree libadbmdns implementation.
+set(ADB_OPENSCREEN_SOURCE_CANDIDATES
+)
+set(ADB_OPENSCREEN_SOURCES)
+foreach(source IN LISTS ADB_OPENSCREEN_SOURCE_CANDIDATES)
+    if(EXISTS "${source}")
+        list(APPEND ADB_OPENSCREEN_SOURCES "${source}")
+    endif()
+endforeach()
+
 # ========================= fastdeploy proto ============================
 # ApkEntry.proto
 set(FASTDEPLOY_PROTO_SRC)  # adb proto source files
@@ -132,6 +143,7 @@ add_library(libadb STATIC
     ${SRC}/adb/sysdeps_unix.cpp
     ${SRC}/adb/sysdeps/posix/network.cpp
     ${ADB_PROTO_SRC} ${ADB_PROTO_HDRS}
+    ${ADB_OPENSCREEN_SOURCES}
     )
 target_compile_definitions(libadb PRIVATE 
     -D_GNU_SOURCE
@@ -248,6 +260,11 @@ target_include_directories(libcrypto PRIVATE
     ${SRC}/boringssl/include
     )
 
+set(ADB_FASTDEPLOY_CALLBACKS)
+if(EXISTS "${SRC}/adb/client/fastdeploycallbacks.cpp")
+    list(APPEND ADB_FASTDEPLOY_CALLBACKS "${SRC}/adb/client/fastdeploycallbacks.cpp")
+endif()
+
 add_executable(adb
     ${SRC}/adb/client/adb_client.cpp
     ${SRC}/adb/client/bugreport.cpp
@@ -258,7 +275,7 @@ add_executable(adb
     ${SRC}/adb/client/adb_install.cpp
     ${SRC}/adb/client/line_printer.cpp
     ${SRC}/adb/client/fastdeploy.cpp
-    ${SRC}/adb/client/fastdeploycallbacks.cpp
+    ${ADB_FASTDEPLOY_CALLBACKS}
     ${SRC}/adb/client/incremental.cpp
     ${SRC}/adb/client/incremental_server.cpp
     ${SRC}/adb/client/incremental_utils.cpp
