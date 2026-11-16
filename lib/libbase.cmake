@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-add_library(libbase STATIC
+set(LIBBASE_SOURCE_CANDIDATES
     ${CMAKE_CURRENT_LIST_DIR}/libbase_result_compat.cpp
     ${SRC}/libbase/abi_compatibility.cpp
     ${SRC}/libbase/chrono_utils.cpp
@@ -33,11 +33,24 @@ add_library(libbase STATIC
     ${SRC}/libbase/threads.cpp
     ${SRC}/libbase/test_utils.cpp
     ${SRC}/libbase/errors_unix.cpp
-    )
+)
+
+set(LIBBASE_SOURCES)
+foreach(source IN LISTS LIBBASE_SOURCE_CANDIDATES)
+    if(EXISTS "${source}")
+        list(APPEND LIBBASE_SOURCES "${source}")
+    endif()
+endforeach()
+
+if(NOT LIBBASE_SOURCES)
+    message(FATAL_ERROR "No libbase sources found under ${SRC}/libbase")
+endif()
+
+add_library(libbase STATIC ${LIBBASE_SOURCES})
 
 target_include_directories(libbase PRIVATE
     ${SRC}/libbase/include
     ${SRC}/core/include
-    ${SRC}/fmtlib/include 
+    ${SRC}/fmtlib/include
     ${SRC}/logging/liblog/include
-    )
+)
