@@ -44,7 +44,6 @@ add_library(libartbase STATIC
     ${SRC}/art/libartbase/base/mem_map.cc
     ${SRC}/art/libartbase/base/metrics/metrics_common.cc
     ${SRC}/art/libartbase/base/os_linux.cc
-    ${SRC}/art/libartbase/base/pointer_size.cc
     ${SRC}/art/libartbase/base/runtime_debug.cc
     ${SRC}/art/libartbase/base/scoped_arena_allocator.cc
     ${SRC}/art/libartbase/base/scoped_flock.cc
