@@ -27,7 +27,7 @@ target_include_directories(libext4 PRIVATE
     ${SRC}/libbase/include
     )
 
-add_library(libfsmgr STATIC
+set(FSMGR_SOURCE_CANDIDATES
     ${SRC}/core/fs_mgr/liblp/images.cpp
     ${SRC}/core/fs_mgr/liblp/builder.cpp
     ${SRC}/core/fs_mgr/liblp/super_layout_builder.cpp
@@ -36,7 +36,17 @@ add_library(libfsmgr STATIC
     ${SRC}/core/fs_mgr/liblp/reader.cpp
     ${SRC}/core/fs_mgr/liblp/utility.cpp
     ${SRC}/core/fs_mgr/liblp/writer.cpp
-    )
+)
+set(FSMGR_SOURCES)
+foreach(source IN LISTS FSMGR_SOURCE_CANDIDATES)
+    if(EXISTS "${source}")
+        list(APPEND FSMGR_SOURCES "${source}")
+    endif()
+endforeach()
+if(NOT FSMGR_SOURCES)
+    message(FATAL_ERROR "No libfsmgr sources found under ${SRC}/core/fs_mgr/liblp")
+endif()
+add_library(libfsmgr STATIC ${FSMGR_SOURCES})
 target_include_directories(libfsmgr PRIVATE
     ${SRC}/core/fs_mgr/liblp/include 
     ${SRC}/libbase/include
