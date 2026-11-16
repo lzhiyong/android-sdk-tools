@@ -1,0 +1,14 @@
+--- a/libprocessgroup/cgroup_map.cpp
++++ b/libprocessgroup/cgroup_map.cpp
+@@ -222,9 +222,11 @@
+         const ACgroupController* controller = ACgroupFile_getController(i);
+         const uint32_t flags = ACgroupController_getFlags(controller);
+         uint32_t max_activation_depth = UINT32_MAX;
++#if defined(__ANDROID_API__) && __ANDROID_API__ >= 36
+         if (__builtin_available(android 36, *)) {
+             max_activation_depth = ACgroupController_getMaxActivationDepth(controller);
+         }
++#endif
+         const int depth = util::GetCgroupDepth(ACgroupController_getPath(controller), path);
+ 
+         if (flags & CGROUPRC_CONTROLLER_FLAG_NEEDS_ACTIVATION && depth < max_activation_depth) {
