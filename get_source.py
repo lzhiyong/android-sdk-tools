@@ -83,6 +83,49 @@ def apply_patch(patch):
     return 'not applicable for this version, skipped'
 
 
+def ensure_art_build_defines():
+    """Keep ART's stack/frame limits available in standalone NDK builds.
+
+    The upstream Soong build normally injects these target-specific defines.
+    This project builds ART sources outside Soong, so provide the same
+    conservative values in the shared header when they are absent.
+    """
+    path = ROOT / 'src/art/libartbase/arch/instruction_set.h'
+    if not path.exists():
+        raise RuntimeError('ART instruction_set.h not found: {}'.format(path))
+
+    text = path.read_text()
+    marker = 'namespace art {'
+    if marker not in text:
+        raise RuntimeError('cannot locate namespace art in {}'.format(path))
+
+    definitions = {
+        'ART_STACK_OVERFLOW_GAP_arm': 16384,
+        'ART_STACK_OVERFLOW_GAP_arm64': 16384,
+        'ART_STACK_OVERFLOW_GAP_riscv64': 16384,
+        'ART_STACK_OVERFLOW_GAP_x86': 16384,
+        'ART_STACK_OVERFLOW_GAP_x86_64': 20480,
+        'ART_FRAME_SIZE_LIMIT': 10000,
+    }
+    missing = []
+    for name, value in definitions.items():
+        if not re.search(r'^\\s*#\\s*define\\s+' + re.escape(name) + r'\\b', text, re.M):
+            missing.append('#define {} {}'.format(name, value))
+
+    if missing:
+        block = (
+            '// Standalone NDK build equivalents of the defines normally supplied by Soong.\\n'
+            + '\\n'.join(missing)
+            + '\\n\\n'
+        )
+        text = text.replace(marker, block + marker, 1)
+        path.write_text(text)
+        print('ART standalone build defines: added {}'.format(', '.join(
+            line.split()[1] for line in missing)), flush=True)
+    else:
+        print('ART standalone build defines: already present', flush=True)
+
+
 def patches():
     inc = ROOT / 'src/incremental_delivery/sysprop/include'
     inc.mkdir(parents=True, exist_ok=True)
@@ -110,6 +153,8 @@ def patches():
     # the source patches only apply to specific versions, apply them when possible
     for patch in sorted((ROOT / 'patches').rglob('*.patch')):
         print('patch {}: {}'.format(patch.relative_to(ROOT), apply_patch(patch)))
+
+    ensure_art_build_defines()
 
 
 def main():
