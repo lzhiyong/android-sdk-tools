@@ -107,10 +107,14 @@ def ensure_art_build_defines():
         'ART_STACK_OVERFLOW_GAP_x86_64': 20480,
         'ART_FRAME_SIZE_LIMIT': 10000,
     }
+    # Ignore commented-out Soong examples: they contain the same #define
+    # spellings but do not provide macros to the C++ preprocessor.
+    active_text = re.sub(r'/\*.*?\*/|//[^\n]*', '', text, flags=re.S)
+
     missing = []
     for name, value in definitions.items():
-        if not re.search(r'^\s*#\s*define\s+' + re.escape(name) + r'\b', text, re.M):
-            missing.append('#define {} {}'.format(name, value))
+        if not re.search(r'^\s*#\s*define\s+' + re.escape(name) + r'\b', active_text, re.M):
+            missing.append('#ifndef {}\n#define {} {}\n#endif'.format(name, name, value))
 
     if missing:
         block = (
@@ -121,7 +125,16 @@ def ensure_art_build_defines():
         text = text.replace(marker, block + marker, 1)
         path.write_text(text)
         print('ART standalone build defines: added {}'.format(', '.join(
-            line.split()[1] for line in missing)), flush=True)
+            name for name in definitions if name not in active_text)), flush=True)
+
+        # Fail early if a required definition is still absent after editing.
+        verified = re.sub(r'/\*.*?\*/|//[^\n]*', '', path.read_text(), flags=re.S)
+        unresolved = [
+            name for name in definitions
+            if not re.search(r'^\s*#\s*define\s+' + re.escape(name) + r'\b', verified, re.M)
+        ]
+        if unresolved:
+            raise RuntimeError('failed to add ART build defines: {}'.format(', '.join(unresolved)))
     else:
         print('ART standalone build defines: already present', flush=True)
 
