@@ -238,6 +238,9 @@ jobs:
           java-version: '17'
 
       - uses: android-actions/setup-android@v3
+        with:
+          # The legacy 'tools' SDK package was removed from Google's repository.
+          packages: platform-tools
 
       - name: Install Android test SDK
         run: |
