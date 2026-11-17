@@ -106,6 +106,10 @@ target_compile_definitions(fastboot PRIVATE
     -DUSE_F2FS
     )
 target_link_libraries(fastboot
+    libadb
+    libusb
+    libmdnssd
+    libopenscreen
     libdiagnoseusb
     libsparse
     libziparchive
