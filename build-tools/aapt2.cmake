@@ -133,6 +133,8 @@ add_library(libaapt2 STATIC
     ${SRC}/base/tools/aapt2/link/ReferenceLinker.cpp
     ${SRC}/base/tools/aapt2/link/ResourceExcluder.cpp
     ${SRC}/base/tools/aapt2/link/TableMerger.cpp
+    ${SRC}/base/tools/aapt2/link/FlaggedXmlVersioner.cpp
+    ${SRC}/base/tools/aapt2/link/FlagNotEnabledResourceRemover.cpp
     ${SRC}/base/tools/aapt2/link/XmlCompatVersioner.cpp
     ${SRC}/base/tools/aapt2/link/XmlNamespaceRemover.cpp
     ${SRC}/base/tools/aapt2/link/XmlReferenceLinker.cpp
