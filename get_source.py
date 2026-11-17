@@ -244,6 +244,37 @@ def ensure_art_hash_set_allocator_compat():
     if re.search(r'allocfn_\.(?:construct|destroy|address)\s*\(', verified):
         raise RuntimeError('C++20-incompatible allocator member remains in {}'.format(path))
 
+
+def ensure_libbase_ndk_private_property_api():
+    """Expose bionic's private property serial declarations to standalone NDK builds.
+
+    libbase uses __system_property_area_serial/__system_property_serial, which
+    are intentionally hidden from the public NDK header. The matching NDK
+    sys/_system_properties.h declares these APIs when the opt-in macro is set.
+    """
+    path = ROOT / 'src/libbase/properties.cpp'
+    if not path.exists():
+        raise RuntimeError('libbase properties.cpp not found: {}'.format(path))
+
+    text = path.read_text()
+    public_include = '#include <sys/system_properties.h>'
+    private_include = '#include <sys/_system_properties.h>'
+    if private_include not in text:
+        if public_include not in text:
+            raise RuntimeError('cannot locate system_properties.h include in {}'.format(path))
+        text = text.replace(
+            public_include,
+            public_include + '\\n#define _REALLY_INCLUDE_SYS__SYSTEM_PROPERTIES_H_\\n' + private_include,
+            1,
+        )
+        path.write_text(text)
+        print('libbase: enabled bionic private property serial declarations', flush=True)
+
+    verified = path.read_text()
+    if private_include not in verified or '_REALLY_INCLUDE_SYS__SYSTEM_PROPERTIES_H_' not in verified:
+        raise RuntimeError('libbase private property declarations were not enabled in {}'.format(path))
+
+
 def patches():
     inc = ROOT / 'src/incremental_delivery/sysprop/include'
     inc.mkdir(parents=True, exist_ok=True)
@@ -276,6 +307,7 @@ def patches():
     ensure_openscreen_task_runner_compat()
     ensure_art_metrics_memory_order_compat()
     ensure_art_hash_set_allocator_compat()
+    ensure_libbase_ndk_private_property_api()
 
 
 def main():
