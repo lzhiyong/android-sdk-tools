@@ -453,6 +453,24 @@ def ensure_expat_android_entropy_source():
         raise RuntimeError('Expat Android entropy definition missing in {}'.format(path))
 
 
+
+def ensure_androidfw_locale_constexpr_compat():
+    """Remove invalid constexpr from locale packers using reinterpret_cast."""
+    path = ROOT / 'src/base/libs/androidfw/include/androidfw/LocaleDataLookup.h'
+    if not path.exists():
+        raise RuntimeError('LocaleDataLookup.h not found')
+    text = path.read_text()
+    fixed = text.replace('constexpr inline uint32_t packLocale(', 'inline uint32_t packLocale(')
+    fixed = fixed.replace('constexpr inline uint32_t packScript(', 'inline uint32_t packScript(')
+    if fixed != text:
+        path.write_text(fixed)
+        print('androidfw: removed invalid locale constexpr', flush=True)
+    verified = path.read_text()
+    if 'constexpr inline uint32_t packLocale(' in verified or 'constexpr inline uint32_t packScript(' in verified:
+        raise RuntimeError('invalid locale constexpr remains')
+
+
+
 def ensure_bionic_private_property_headers():
     """Expose Bionic private property serial APIs before including the public header."""
     sources = (
@@ -524,6 +542,7 @@ def patches():
     ensure_art_hash_set_allocator_compat()
     ensure_libbase_ndk_private_property_api()
     ensure_androidfw_combined_iterator_swap_compat()
+    ensure_androidfw_locale_constexpr_compat()
     ensure_boringssl_arm_asm_comment_compat()
     ensure_expat_android_entropy_source()
     ensure_bionic_private_property_headers()
