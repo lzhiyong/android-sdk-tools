@@ -412,7 +412,7 @@ def ensure_androidfw_combined_iterator_swap_compat():
                     break
         if end < 0:
             raise RuntimeError('cannot locate RefPair swap body in {}'.format(path))
-        body = text[brace:end]
+        body = text[start:end]
         rvalue_body = body.replace('friend void swap(RefPair& l, RefPair& r)',
                                    'friend void swap(RefPair&& l, RefPair&& r)', 1)
         text = text[:end] + '\n\n  ' + rvalue_body.strip() + text[end:]
