@@ -295,6 +295,7 @@ add_executable(adb
     )
 target_include_directories(adb PRIVATE
     ${SRC}/adb
+    ${SRC}/openscreen
     ${SRC}/adb/proto
     ${SRC}/adb/fastdeploy/deployagent
     ${SRC}/lz4/lib
