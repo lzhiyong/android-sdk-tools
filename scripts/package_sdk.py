@@ -69,7 +69,7 @@ def update_pkg_revision(sdk_root, version):
         raise RuntimeError(f"SDK source.properties missing: {properties}")
     content = properties.read_text(encoding="utf-8")
     updated, count = re.subn(
-        r"(?m)^Pkg\\.Revision\\s*=.*$",
+        r"(?m)^Pkg\.Revision\s*=.*$",
         f"Pkg.Revision={version}",
         content,
     )
