@@ -304,7 +304,6 @@ target_include_directories(adb PRIVATE
     ${SRC}/adb
     ${SRC}/libusb
     ${SRC}/libusb/include
-    ${SRC}/libusb/include
     ${SRC}/openscreen
     ${SRC}/adb/proto
     ${SRC}/adb/fastdeploy/deployagent
