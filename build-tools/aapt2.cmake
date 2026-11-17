@@ -62,6 +62,7 @@ set(INCLUDES
     ${SRC}/base/tools/aapt2
     ${SRC}/abseil-cpp
     ${SRC}/protobuf/src
+    ${SRC}/protobuf/third_party/utf8_range
     ${SRC}/logging/liblog/include
     ${SRC}/expat/lib
     ${SRC}/fmtlib/include
