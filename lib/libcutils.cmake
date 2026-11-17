@@ -55,6 +55,10 @@ else()
         )
 endif()
 
+# The Android-target snapshot may compile out libcutils' local
+# toggle_O_NONBLOCK helper while retaining its call sites.
+list(APPEND LIBCUTILS_SRC ${CMAKE_SOURCE_DIR}/lib/toggle_o_nonblock.cpp)
+
 add_library(libcutils STATIC ${LIBCUTILS_SRC})
 
 target_compile_definitions(libcutils PRIVATE 
