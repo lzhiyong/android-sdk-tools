@@ -621,12 +621,52 @@ def ensure_androidfw_resize_and_overwrite_compat():
     for path in candidates:
         if not path.exists():
             continue
-        text = path.read_text()
+        source_text = path.read_text()
         marker = 'resize_and_overwrite('
-        if marker not in text:
+        if marker not in source_text:
             continue
-        start = text.find(marker)
-        receiver_match = re.search(r'([A-Za-z_][A-Za-z0-9_]*)\s*(?:->|\.)\s*
+        start = source_text.find(marker)
+        receiver_match = re.search(r'([A-Za-z_][A-Za-z0-9_]*)\s*(?:->|\.)\s*$', source_text[:start])
+        if receiver_match is None:
+            raise RuntimeError('cannot identify resize_and_overwrite receiver in {}'.format(path))
+        receiver = receiver_match.group(1)
+        access = source_text[receiver_match.end(1):start].strip()
+        member = '.' if access == '.' else '->'
+        open_paren = start + len('resize_and_overwrite')
+        depth = 0
+        comma = -1
+        close_paren = -1
+        for index in range(open_paren, len(source_text)):
+            char = source_text[index]
+            if char == '(':
+                depth += 1
+            elif char == ')':
+                depth -= 1
+                if depth == 0:
+                    close_paren = index
+                    break
+            elif char == ',' and depth == 1 and comma < 0:
+                comma = index
+        if comma < 0 or close_paren < 0:
+            raise RuntimeError('cannot parse resize_and_overwrite call in {}'.format(path))
+        size_expr = source_text[open_paren + 1:comma].strip()
+        callback = source_text[comma + 1:close_paren].strip()
+        if not callback.startswith('['):
+            raise RuntimeError('unexpected resize_and_overwrite callback in {}'.format(path))
+        replacement = (
+            receiver + member + 'resize(' + size_expr + ');\n'
+            + receiver + member + 'resize((' + callback + ')('
+            + receiver + member + 'data(), ' + receiver + member + 'size()))'
+        )
+        source_text = source_text[:receiver_match.start(1)] + replacement + source_text[close_paren + 1:]
+        path.write_text(source_text)
+        if marker in path.read_text():
+            raise RuntimeError('resize_and_overwrite remains in {}'.format(path))
+        print('C++17: replaced resize_and_overwrite in {}'.format(path.relative_to(ROOT)), flush=True)
+
+
+
+def main():
     version = tools_version()
     parser = argparse.ArgumentParser()
     parser.add_argument('--tags', default='platform-tools-{}'.format(version),
@@ -661,82 +701,6 @@ def ensure_androidfw_resize_and_overwrite_compat():
         ensure_androidfw_combined_iterator_swap_compat()
         ensure_libbase_resize_and_overwrite_compat()
         ensure_androidfw_resize_and_overwrite_compat()
-
-    print('download success!!')
-
-
-if __name__ == '__main__':
-    main()
-, text[:start])
-        if receiver_match is None:
-            raise RuntimeError('cannot identify resize_and_overwrite receiver in {}'.format(path))
-        receiver = receiver_match.group(1)
-        access = text[receiver_match.end(1):start].strip()
-        open_paren = start + len('resize_and_overwrite')
-        depth = 0
-        comma = -1
-        close_paren = -1
-        for index in range(open_paren, len(text)):
-            char = text[index]
-            if char == '(':
-                depth += 1
-            elif char == ')':
-                depth -= 1
-                if depth == 0:
-                    close_paren = index
-                    break
-            elif char == ',' and depth == 1 and comma < 0:
-                comma = index
-        if comma < 0 or close_paren < 0:
-            raise RuntimeError('cannot parse resize_and_overwrite call in {}'.format(path))
-        size_expr = text[open_paren + 1:comma].strip()
-        callback = text[comma + 1:close_paren].strip()
-        if not callback.startswith('['):
-            raise RuntimeError('unexpected resize_and_overwrite callback in {}'.format(path))
-        member = '.' if access == '.' else '->'
-        replacement = (
-            receiver + member + 'resize(' + size_expr + ');\n'
-            + receiver + member + 'resize((' + callback + ')('
-            + receiver + member + 'data(), ' + receiver + member + 'size()))'
-        )
-        text = text[:receiver_match.start(1)] + replacement + text[close_paren + 1:]
-        path.write_text(text)
-        if marker in path.read_text():
-            raise RuntimeError('resize_and_overwrite remains in {}'.format(path))
-        print('C++17: replaced resize_and_overwrite in {}'.format(path.relative_to(ROOT)), flush=True)
-
-
-def main():
-    version = tools_version()
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--tags', default='platform-tools-{}'.format(version),
-                        help='git tag or branch of the AOSP repositories, default is platform-tools-{} '
-                             '(from patches/misc/platform_tools_version.h)'.format(version))
-    parser.add_argument('--jobs', type=int, default=8, help='clone N repositories in parallel')
-    parser.add_argument('--retries', type=int, default=3, help='retry times of a failed clone')
-    parser.add_argument('--skip-patch', action='store_true', help='only clone, do not patch the sources')
-    args = parser.parse_args()
-
-    # check necessary packages
-    for command in ('git', 'patch', 'go', 'bison', 'flex'):
-        check(command)
-
-    repos = json.loads((ROOT / 'repository.json').read_text())
-    print('fetching sources: {}'.format(args.tags))
-    errors = []
-    with ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
-        futures = [pool.submit(clone, repo, args.tags, args.retries) for repo in repos]
-        for future in as_completed(futures):
-            try:
-                print(future.result(), flush=True)
-            except RuntimeError as e:
-                errors.append(str(e))
-    if errors:
-        sys.exit('\n'.join(errors))
-
-    if not args.skip_patch:
-        patches()
-        ensure_expat_android_entropy_source()
 
     print('download success!!')
 
