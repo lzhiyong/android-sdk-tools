@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Package complete Google Linux SDK archives with one ABI's native tools."""
 import argparse
+import re
 import shutil
 import subprocess
 import tarfile
@@ -59,6 +60,27 @@ def find_parent(root, filename):
         raise RuntimeError(f"Official archive does not contain {filename}")
     return min(found, key=lambda p: len(p.parts))
 
+
+
+def update_pkg_revision(sdk_root, version):
+    """Set the SDK package metadata revision to the version being packaged."""
+    properties = sdk_root / "source.properties"
+    if not properties.is_file():
+        raise RuntimeError(f"SDK source.properties missing: {properties}")
+    content = properties.read_text(encoding="utf-8")
+    updated, count = re.subn(
+        r"(?m)^Pkg\\.Revision\\s*=.*$",
+        f"Pkg.Revision={version}",
+        content,
+    )
+    if count != 1:
+        raise RuntimeError(
+            f"Expected exactly one Pkg.Revision in {properties}, found {count}"
+        )
+    properties.write_text(updated, encoding="utf-8")
+    if f"Pkg.Revision={version}" not in properties.read_text(encoding="utf-8"):
+        raise RuntimeError(f"Failed to update package revision in {properties}")
+    print(f"updated {properties}: Pkg.Revision={version}")
 
 def create_build_tools_zip(source, output, version):
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED,
@@ -171,6 +193,10 @@ def main():
                     destination.chmod(0o755)
                     print(f"[{abi}] replaced {group}/{name} mode=755")
 
+            # Rewrite metadata only after all custom native binaries are installed.
+            update_pkg_revision(pt_root, args.version)
+            update_pkg_revision(bt_root, args.version)
+
             pt_output = args.output / f"platform-tools-{args.version}-{abi}.tar.gz"
             with tarfile.open(pt_output, "w:gz", compresslevel=9) as archive:
                 archive.add(pt_root, arcname="platform-tools")
@@ -179,6 +205,9 @@ def main():
             create_build_tools_zip(bt_root, bt_output, args.version)
 
             with tarfile.open(pt_output, "r:gz") as archive:
+                pt_metadata = archive.extractfile("platform-tools/source.properties")
+                if pt_metadata is None or f"Pkg.Revision={args.version}".encode() not in pt_metadata.read():
+                    raise RuntimeError(f"{abi}: platform-tools source.properties has the wrong Pkg.Revision")
                 members = set(archive.getnames())
                 missing = {
                     f"platform-tools/{name}" for name in GROUPS["platform-tools"]
@@ -187,6 +216,9 @@ def main():
                     raise RuntimeError(f"{abi}: platform-tools archive missing {sorted(missing)}")
 
             with zipfile.ZipFile(bt_output) as archive:
+                bt_metadata = archive.read(f"{args.version}/source.properties")
+                if f"Pkg.Revision={args.version}".encode() not in bt_metadata:
+                    raise RuntimeError(f"{abi}: build-tools source.properties has the wrong Pkg.Revision")
                 members = set(archive.namelist())
                 missing = {
                     f"{args.version}/{name}"
