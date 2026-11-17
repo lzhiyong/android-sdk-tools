@@ -112,7 +112,9 @@ endif()
 # ========================= fastdeploy proto ============================
 
 
-add_library(libadb STATIC
+# ADB source layout differs across platform-tools snapshots. Keep only
+# translation units that exist in the checked-out ADB revision.
+set(ADB_CORE_SOURCE_CANDIDATES
     ${SRC}/adb/adb.cpp
     ${SRC}/adb/adb_io.cpp
     ${SRC}/adb/adb_listeners.cpp
@@ -142,8 +144,16 @@ add_library(libadb STATIC
     ${SRC}/adb/fdevent/fdevent_epoll.cpp
     ${SRC}/adb/sysdeps_unix.cpp
     ${SRC}/adb/sysdeps/posix/network.cpp
-    ${ADB_PROTO_SRC} ${ADB_PROTO_HDRS}
-    ${ADB_OPENSCREEN_SOURCES}
+)
+set(ADB_CORE_SOURCES)
+foreach(source IN LISTS ADB_CORE_SOURCE_CANDIDATES)
+    if(EXISTS "${source}")
+        list(APPEND ADB_CORE_SOURCES "${source}")
+    endif()
+endforeach()
+
+add_library(libadb STATIC
+    ${ADB_CORE_SOURCES}
     )
 target_compile_definitions(libadb PRIVATE 
     -D_GNU_SOURCE
