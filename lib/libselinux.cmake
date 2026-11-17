@@ -66,6 +66,7 @@ add_library(libselinux STATIC
 target_compile_definitions(libselinux PRIVATE
     -DAUDITD_LOG_TAG=1003 
     -D_GNU_SOURCE 
+    -DHAVE_REALLOCARRAY
     -DHOST 
     -DUSE_PCRE2
     -DNO_PERSISTENTLY_STORED_PATTERNS 
