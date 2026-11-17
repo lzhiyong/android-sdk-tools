@@ -370,6 +370,7 @@ def patches():
     ensure_art_metrics_memory_order_compat()
     ensure_art_hash_set_allocator_compat()
     ensure_libbase_ndk_private_property_api()
+    ensure_libbase_resize_and_overwrite_compat()
 
 
 def main():
