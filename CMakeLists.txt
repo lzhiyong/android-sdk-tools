@@ -114,6 +114,13 @@ add_subdirectory(src/expat/expat EXCLUDE_FROM_ALL)
 add_subdirectory(src/zstd/build/cmake EXCLUDE_FROM_ALL)
 add_subdirectory(src/lz4/build/cmake EXCLUDE_FROM_ALL)
 add_subdirectory(src/brotli EXCLUDE_FROM_ALL)
+# Abseil adds the Android system library "log" to its link interface.
+# This project builds fully static Android executables, so bind that dependency
+# to the bundled static liblog target instead of NDK's shared-only liblog.so.
+if(ANDROID AND NOT TARGET log)
+    add_library(log INTERFACE)
+    set(SDK_BUNDLED_ABSL_LOG TRUE)
+endif()
 add_subdirectory(src/abseil-cpp EXCLUDE_FROM_ALL)
 add_subdirectory(src/protobuf EXCLUDE_FROM_ALL)
 add_subdirectory(src/googletest EXCLUDE_FROM_ALL)
@@ -121,6 +128,10 @@ add_subdirectory(src/tinyxml2 EXCLUDE_FROM_ALL)
 
 # building sdk-tools
 add_subdirectory(lib)
+
+if(SDK_BUNDLED_ABSL_LOG)
+    target_link_libraries(log INTERFACE liblog)
+endif()
 add_subdirectory(build-tools)
 add_subdirectory(platform-tools)
 add_subdirectory(others)
