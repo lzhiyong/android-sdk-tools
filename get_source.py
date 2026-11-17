@@ -275,6 +275,118 @@ def ensure_libbase_ndk_private_property_api():
         raise RuntimeError('libbase private property declarations were not enabled in {}'.format(path))
 
 
+
+def ensure_liblog_ndk_private_property_api():
+    """Expose bionic private property serial declarations to standalone liblog builds."""
+    path = ROOT / 'src/logging/liblog/properties.cpp'
+    if not path.exists():
+        raise RuntimeError('liblog properties.cpp not found: {}'.format(path))
+    text = path.read_text()
+    public_include = '#include <sys/system_properties.h>'
+    private_include = '#include <sys/_system_properties.h>'
+    if private_include not in text:
+        if public_include not in text:
+            raise RuntimeError('cannot locate system_properties.h include in {}'.format(path))
+        text = text.replace(
+            public_include,
+            public_include + '\n#define _REALLY_INCLUDE_SYS__SYSTEM_PROPERTIES_H_\n' + private_include,
+            1,
+        )
+        path.write_text(text)
+        print('liblog: enabled bionic private property serial declarations', flush=True)
+    verified = path.read_text()
+    if private_include not in verified or '_REALLY_INCLUDE_SYS__SYSTEM_PROPERTIES_H_' not in verified:
+        raise RuntimeError('liblog private property declarations were not enabled in {}'.format(path))
+
+
+def ensure_liblog_api37_ndk_compat():
+    """Keep liblog's timestamped logger implementation usable below API 37.
+
+    The exported API is retained, but the API-30 logger delegates to a private
+    implementation rather than calling an API-37 annotated declaration.
+    """
+    path = ROOT / 'src/logging/liblog/logger_write.cpp'
+    if not path.exists():
+        raise RuntimeError('liblog logger_write.cpp not found: {}'.format(path))
+    text = path.read_text()
+    public_name = '__android_log_logd_logger_with_timestamp'
+    impl_name = 'logd_logger_with_timestamp_impl'
+    old_call = public_name + '(log_message, nullptr);'
+
+    if impl_name not in text:
+        signature = 'void ' + public_name + '('
+        signature_pos = text.find(signature)
+        if signature_pos < 0:
+            raise RuntimeError('cannot locate {} definition in {}'.format(public_name, path))
+
+        # Preserve the exported API symbol while moving its body to a private helper.
+        body_open = text.find('{', signature_pos)
+        if body_open < 0:
+            raise RuntimeError('cannot locate timestamp logger function body in {}'.format(path))
+        depth = 0
+        body_close = -1
+        for index in range(body_open, len(text)):
+            if text[index] == '{':
+                depth += 1
+            elif text[index] == '}':
+                depth -= 1
+                if depth == 0:
+                    body_close = index
+                    break
+        if body_close < 0:
+            raise RuntimeError('unterminated timestamp logger function in {}'.format(path))
+
+        text = text[:signature_pos] + text[signature_pos:].replace(
+            signature, 'static void ' + impl_name + '(', 1
+        )
+        text = text.replace(old_call, impl_name + '(log_message, nullptr);', 1)
+
+        wrapper = (
+            '\n\nvoid ' + public_name + '(\n'
+            '    const struct __android_log_message* log_message,\n'
+            '    const struct timespec* timestamp) {\n'
+            '  ' + impl_name + '(log_message, timestamp);\n'
+            '}\n'
+        )
+        # Re-find the renamed implementation and its closing brace after edits.
+        impl_pos = text.find('static void ' + impl_name + '(')
+        impl_open = text.find('{', impl_pos)
+        depth = 0
+        impl_close = -1
+        for index in range(impl_open, len(text)):
+            if text[index] == '{':
+                depth += 1
+            elif text[index] == '}':
+                depth -= 1
+                if depth == 0:
+                    impl_close = index
+                    break
+        if impl_close < 0:
+            raise RuntimeError('unterminated private timestamp logger implementation in {}'.format(path))
+        text = text[:impl_close + 1] + wrapper + text[impl_close + 1:]
+
+        # The API-30 wrapper appears before the helper definition.
+        wrapper_pos = text.find('void __android_log_logd_logger(')
+        if wrapper_pos < 0:
+            raise RuntimeError('cannot locate API-30 logger wrapper in {}'.format(path))
+        declaration = (
+            'static void ' + impl_name + '(\n'
+            '    const struct __android_log_message* log_message,\n'
+            '    const struct timespec* timestamp);\n\n'
+        )
+        text = text[:wrapper_pos] + declaration + text[wrapper_pos:]
+        path.write_text(text)
+        print('liblog: isolated API-37 timestamp logger behind a private helper', flush=True)
+
+    verified = path.read_text()
+    if old_call in verified:
+        raise RuntimeError('API-30 logger still calls the API-37 timestamp API in {}'.format(path))
+    if 'static void ' + impl_name + '(' not in verified:
+        raise RuntimeError('private timestamp logger implementation missing in {}'.format(path))
+    if 'void ' + public_name + '(' not in verified:
+        raise RuntimeError('exported timestamp logger API missing in {}'.format(path))
+
+
 def patches():
     inc = ROOT / 'src/incremental_delivery/sysprop/include'
     inc.mkdir(parents=True, exist_ok=True)
@@ -308,6 +420,8 @@ def patches():
     ensure_art_metrics_memory_order_compat()
     ensure_art_hash_set_allocator_compat()
     ensure_libbase_ndk_private_property_api()
+    ensure_liblog_ndk_private_property_api()
+    ensure_liblog_api37_ndk_compat()
 
 
 def main():
