@@ -1,0 +1,28 @@
+--- a/src/adb/client/transport_mdns.cpp
++++ b/src/adb/client/transport_mdns.cpp
+@@ -37,8 +37,10 @@
+ #include "adb_trace.h"
+ #include "adb_utils.h"
+ #include "adb_wifi.h"
++#ifndef ADB_NO_RUST_MDNS
+ #include "client/adbmdns/adbmdns.h"
+ #include "client/adbmdns/adbmdns_bridge.h"
++#endif
+ #include "client/discovered_services.h"
+ #include "client/mdns_utils.h"
+ #include "client/openscreen/mdns_service.h"
+@@ -132,11 +134,16 @@
+ /////////////////////////////////////////////////////////////////////////////////
+
+ void init_mdns_transport_discovery() {
++#ifdef ADB_NO_RUST_MDNS
++    // Use the native Open Screen backend when the Rust bridge is unavailable.
++    StartOpenScreenDiscovery();
++#else
+     if (mdns::should_use_openscreen()) {
+         StartOpenScreenDiscovery();
+     } else {
+         StartAdbMdnsDiscovery();
+     }
++#endif
+ }
