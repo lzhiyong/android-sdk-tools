@@ -149,9 +149,8 @@ set(ADB_CORE_SOURCE_CANDIDATES
     ${SRC}/adb/client/transport_mdns.cpp
     ${SRC}/adb/client/transport_usb.cpp
     ${SRC}/adb/client/pairing/pairing_client.cpp
-    ${SRC}/adb/client/netlink.cpp
-    ${SRC}/adb/client/mdns_service_discovery.cpp
     ${SRC}/adb/client/usb_linux.cpp
+    ${SRC}/adb/client/usb_linux_netlink.cpp
     ${SRC}/adb/fdevent/fdevent_epoll.cpp
     ${SRC}/adb/sysdeps_unix.cpp
     ${SRC}/adb/sysdeps/posix/network.cpp
@@ -171,6 +170,7 @@ add_library(libadb STATIC
 target_compile_definitions(libadb PRIVATE 
     -D_GNU_SOURCE
     -DADB_HOST=1
+    -DADB_NO_RUST_MDNS
     )
 target_include_directories(libadb PRIVATE
     ${SRC}/adb
