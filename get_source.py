@@ -669,24 +669,87 @@ def ensure_androidfw_resize_and_overwrite_compat():
 
 
 def ensure_libprocessgroup_string_contains_compat():
-    """Translate C++23 std::string::contains calls to the C++17 find equivalent."""
-    import re
+    """Translate C++23 string::contains calls to their C++17 find equivalent."""
     path = ROOT / 'src/core/libprocessgroup/util/util.cpp'
     if not path.exists():
         raise RuntimeError('libprocessgroup util.cpp not found: {}'.format(path))
     source = path.read_text()
-    pattern = re.compile(r'((?:[A-Za-z_]\w*::)*[A-Za-z_]\w*(?:\([^()]*\))?)\.contains\(([^()]*)\)')
-    fixed, count = pattern.subn(
-        lambda match: '(' + match.group(1) + '.find(' + match.group(2) + ') != std::string::npos)',
-        source,
-    )
+    count = 0
+
+    while '.contains(' in source:
+        dot = source.find('.contains(')
+        receiver_end = dot
+        cursor = receiver_end
+
+        # Find the beginning of the receiver, including temporary string/string_view
+        # constructions such as std::string_view(path).contains(...).
+        if cursor > 0 and source[cursor - 1] == ')':
+            depth = 0
+            opening = -1
+            for pos in range(cursor - 1, -1, -1):
+                if source[pos] == ')':
+                    depth += 1
+                elif source[pos] == '(':
+                    depth -= 1
+                    if depth == 0:
+                        opening = pos
+                        break
+            if opening < 0:
+                raise RuntimeError('cannot parse string::contains receiver in {}'.format(path))
+            cursor = opening
+            while cursor > 0 and (source[cursor - 1].isalnum() or source[cursor - 1] in '_:'):
+                cursor -= 1
+        else:
+            while cursor > 0 and (source[cursor - 1].isalnum() or source[cursor - 1] in '_:'):
+                cursor -= 1
+
+        # Include chained object/member receivers (object.member.contains).
+        while cursor > 0:
+            separator_end = cursor
+            while separator_end > 0 and source[separator_end - 1].isspace():
+                separator_end -= 1
+            if separator_end > 0 and source[separator_end - 1] == '.':
+                cursor = separator_end - 1
+            elif separator_end >= 2 and source[separator_end - 2:separator_end] == '->':
+                cursor = separator_end - 2
+            else:
+                break
+            while cursor > 0 and source[cursor - 1].isspace():
+                cursor -= 1
+            while cursor > 0 and (source[cursor - 1].isalnum() or source[cursor - 1] in '_:'):
+                cursor -= 1
+
+        receiver = source[cursor:receiver_end].strip()
+        if not receiver:
+            raise RuntimeError('empty string::contains receiver in {}'.format(path))
+
+        args_start = dot + len('.contains(')
+        depth = 1
+        args_end = -1
+        for pos in range(args_start, len(source)):
+            if source[pos] == '(':
+                depth += 1
+            elif source[pos] == ')':
+                depth -= 1
+                if depth == 0:
+                    args_end = pos
+                    break
+        if args_end < 0:
+            raise RuntimeError('unterminated string::contains call in {}'.format(path))
+
+        argument = source[args_start:args_end].strip()
+        replacement = '(' + receiver + '.find(' + argument + ') != std::string::npos)'
+        source = source[:cursor] + replacement + source[args_end + 1:]
+        count += 1
+
     if count:
-        path.write_text(fixed)
+        path.write_text(source)
         print('libprocessgroup: replaced {} C++23 string::contains call(s)'.format(count), flush=True)
     if '.contains(' in path.read_text():
         raise RuntimeError('unsupported string::contains remains in {}'.format(path))
-    if count == 0 and '.contains(' in source:
-        raise RuntimeError('could not parse string::contains call in {}'.format(path))
+    if count == 0:
+        raise RuntimeError('expected C++23 string::contains call not found in {}'.format(path))
+
 
 def main():
     version = tools_version()
