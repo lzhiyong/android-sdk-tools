@@ -387,6 +387,45 @@ def ensure_liblog_api37_ndk_compat():
         raise RuntimeError('exported timestamp logger API missing in {}'.format(path))
 
 
+
+
+def ensure_bionic_private_property_headers():
+    """Expose Bionic private property serial APIs before including the public header."""
+    sources = (
+        'src/libbase/properties.cpp',
+        'src/logging/liblog/properties.cpp',
+        'src/core/libcutils/trace-dev.inc',
+    )
+    public_include = '#include <sys/system_properties.h>'
+    private_include = '#include <sys/_system_properties.h>'
+    opt_in = '#define _REALLY_INCLUDE_SYS__SYSTEM_PROPERTIES_H_'
+
+    for relative in sources:
+        path = ROOT / relative
+        if not path.exists():
+            continue
+        text = path.read_text()
+        if public_include not in text:
+            continue
+
+        # Normalize any earlier insertion: the opt-in must be defined before
+        # system_properties.h is first included, otherwise the private header
+        # exposes only the public overloads.
+        text = text.replace(opt_in + '\n', '')
+        text = text.replace(private_include + '\n', '')
+        text = text.replace(
+            public_include,
+            opt_in + '\n' + public_include + '\n' + private_include,
+            1,
+        )
+        path.write_text(text)
+
+        verified = path.read_text()
+        expected = opt_in + '\n' + public_include + '\n' + private_include
+        if expected not in verified:
+            raise RuntimeError('Bionic private property header order is incorrect in {}'.format(path))
+        print('bionic: enabled private property serial APIs in {}'.format(relative), flush=True)
+
 def patches():
     inc = ROOT / 'src/incremental_delivery/sysprop/include'
     inc.mkdir(parents=True, exist_ok=True)
@@ -420,6 +459,7 @@ def patches():
     ensure_art_metrics_memory_order_compat()
     ensure_art_hash_set_allocator_compat()
     ensure_libbase_ndk_private_property_api()
+    ensure_bionic_private_property_headers()
     ensure_liblog_ndk_private_property_api()
     ensure_liblog_api37_ndk_compat()
 
