@@ -14,6 +14,21 @@
 # limitations under the License.
 #
 
+# Keep the source list compatible with Android tags where individual ART
+# implementation files have moved or been removed.
+function(add_library_existing_sources target type)
+    set(existing_sources)
+    foreach(source IN LISTS ARGN)
+        if(EXISTS "${source}")
+            list(APPEND existing_sources "${source}")
+        endif()
+    endforeach()
+    if(NOT existing_sources)
+        message(FATAL_ERROR "No sources found for ${target}")
+    endif()
+    add_library(${target} ${type} ${existing_sources})
+endfunction()
+
 set(INCLUDES
     ${SRC}/art/libartbase
     ${SRC}/art/libdexfile
@@ -25,7 +40,7 @@ set(INCLUDES
     ${SRC}/libziparchive/include
     )
 
-add_library(libartbase STATIC
+add_library_existing_sources(libartbase STATIC
     ${SRC}/art/libartbase/arch/instruction_set.cc
     ${SRC}/art/libartbase/base/allocator.cc
     ${SRC}/art/libartbase/base/arena_allocator.cc
@@ -44,7 +59,6 @@ add_library(libartbase STATIC
     ${SRC}/art/libartbase/base/mem_map.cc
     ${SRC}/art/libartbase/base/metrics/metrics_common.cc
     ${SRC}/art/libartbase/base/os_linux.cc
-    ${SRC}/art/libartbase/base/pointer_size.cc
     ${SRC}/art/libartbase/base/runtime_debug.cc
     ${SRC}/art/libartbase/base/scoped_arena_allocator.cc
     ${SRC}/art/libartbase/base/scoped_flock.cc
@@ -59,13 +73,13 @@ add_library(libartbase STATIC
     )
 target_include_directories(libartbase PRIVATE ${INCLUDES})
 
-add_library(libartpalette STATIC
+add_library_existing_sources(libartpalette STATIC
     ${SRC}/art/libartpalette/apex/palette.cc
     ${SRC}/art/libartpalette/system/palette_fake.cc
     )
 target_include_directories(libartpalette PRIVATE ${INCLUDES})
 
-add_library(libdexfile STATIC
+add_library_existing_sources(libdexfile STATIC
     ${SRC}/art/libdexfile/dex/art_dex_file_loader.cc
     ${SRC}/art/libdexfile/dex/compact_dex_file.cc
     ${SRC}/art/libdexfile/dex/compact_offset_table.cc

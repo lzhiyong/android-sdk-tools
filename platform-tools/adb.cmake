@@ -57,6 +57,23 @@ endif()
 # ========================= adb proto ============================
 
 
+# Open Screen client sources vary between AOSP snapshots. Add only files
+# that are present in the selected packages/modules/adb checkout.
+set(ADB_OPENSCREEN_SOURCE_CANDIDATES
+    ${SRC}/adb/client/openscreen/mdns_service.cpp
+    ${SRC}/adb/client/openscreen/mdns_service_info.cpp
+    ${SRC}/adb/client/openscreen/mdns_service_watcher.cpp
+    ${SRC}/adb/client/openscreen/platform/logging.cpp
+    ${SRC}/adb/client/openscreen/platform/task_runner.cpp
+    ${SRC}/adb/client/openscreen/platform/udp_socket.cpp
+)
+set(ADB_OPENSCREEN_SOURCES)
+foreach(source IN LISTS ADB_OPENSCREEN_SOURCE_CANDIDATES)
+    if(EXISTS "${source}")
+        list(APPEND ADB_OPENSCREEN_SOURCES "${source}")
+    endif()
+endforeach()
+
 # ========================= fastdeploy proto ============================
 # ApkEntry.proto
 set(FASTDEPLOY_PROTO_SRC)  # adb proto source files
@@ -96,7 +113,10 @@ endif()
 # ========================= fastdeploy proto ============================
 
 
-add_library(libadb STATIC
+# ADB source layout differs across platform-tools snapshots. Keep only
+# translation units that exist in the checked-out ADB revision.
+set(ADB_CORE_SOURCE_CANDIDATES
+    ${SRC}/adb/transport_local.cpp
     ${SRC}/adb/adb.cpp
     ${SRC}/adb/adb_io.cpp
     ${SRC}/adb/adb_listeners.cpp
@@ -113,29 +133,44 @@ add_library(libadb STATIC
     ${SRC}/adb/transport.cpp
     ${SRC}/adb/transport_fd.cpp
     ${SRC}/adb/types.cpp
-    ${SRC}/adb/client/openscreen/mdns_service_info.cpp
-    ${SRC}/adb/client/openscreen/mdns_service_watcher.cpp
-    ${SRC}/adb/client/openscreen/platform/logging.cpp
-    ${SRC}/adb/client/openscreen/platform/task_runner.cpp
-    ${SRC}/adb/client/openscreen/platform/udp_socket.cpp
     ${SRC}/adb/client/auth.cpp
     ${SRC}/adb/client/adb_wifi.cpp
     ${SRC}/adb/client/usb_libusb.cpp
+    ${SRC}/adb/client/detach.cpp
+    ${SRC}/adb/client/usb_libusb_device.cpp
+    ${SRC}/adb/client/usb_libusb_hotplug.cpp
+    ${SRC}/adb/client/usb_libusb_inhouse_hotplug.cpp
+    ${SRC}/adb/client/transport_emulator.cpp
     ${SRC}/adb/client/transport_local.cpp
     ${SRC}/adb/client/mdnsresponder_client.cpp
     ${SRC}/adb/client/mdns_utils.cpp
+    ${SRC}/adb/client/discovered_services.cpp
+    ${SRC}/adb/client/mdns_tracker.cpp
     ${SRC}/adb/client/transport_mdns.cpp
     ${SRC}/adb/client/transport_usb.cpp
     ${SRC}/adb/client/pairing/pairing_client.cpp
     ${SRC}/adb/client/usb_linux.cpp
+    ${SRC}/adb/client/usb_linux_netlink.cpp
     ${SRC}/adb/fdevent/fdevent_epoll.cpp
     ${SRC}/adb/sysdeps_unix.cpp
     ${SRC}/adb/sysdeps/posix/network.cpp
-    ${ADB_PROTO_SRC} ${ADB_PROTO_HDRS}
+)
+set(ADB_CORE_SOURCES)
+foreach(source IN LISTS ADB_CORE_SOURCE_CANDIDATES)
+    if(EXISTS "${source}")
+        list(APPEND ADB_CORE_SOURCES "${source}")
+    endif()
+endforeach()
+
+add_library(libadb STATIC
+    ${ADB_CORE_SOURCES}
+    ${ADB_OPENSCREEN_SOURCES}
+    ${ADB_PROTO_SRC}
     )
 target_compile_definitions(libadb PRIVATE 
     -D_GNU_SOURCE
     -DADB_HOST=1
+    -DADB_NO_RUST_MDNS
     )
 target_include_directories(libadb PRIVATE
     ${SRC}/adb
@@ -150,6 +185,7 @@ target_include_directories(libadb PRIVATE
     ${SRC}/libziparchive/include
     ${SRC}/native/include
     ${SRC}/protobuf/src
+    ${SRC}/protobuf/third_party/utf8_range
     ${SRC}/zstd/lib
     ${SRC}/libusb/include
     ${SRC}/brotli/c/include
@@ -179,7 +215,9 @@ target_include_directories(libadb_crypto PRIVATE
     ${SRC}/boringssl/include
     ${SRC}/core/libcrypto_utils/include
     ${SRC}/libbase/include
-    ${SRC}/protobuf/src
+        ${SRC}/protobuf/src
+    ${SRC}/protobuf/third_party/utf8_range
+    ${SRC}/abseil-cpp
     )
 
 add_library(libadb_tls_connection STATIC
@@ -203,7 +241,9 @@ target_include_directories(libadb_pairing_connection PRIVATE
     ${SRC}/adb/tls/include
     ${SRC}/libbase/include
     ${SRC}/boringssl/include
-    ${SRC}/protobuf/src
+        ${SRC}/protobuf/src
+    ${SRC}/protobuf/third_party/utf8_range
+    ${SRC}/abseil-cpp
     )
 
 add_library(libadb_pairing_auth STATIC
@@ -214,7 +254,9 @@ target_include_directories(libadb_pairing_auth PRIVATE
     ${SRC}/adb/pairing_auth/include
     ${SRC}/libbase/include
     ${SRC}/boringssl/include
-    ${SRC}/protobuf/src
+        ${SRC}/protobuf/src
+    ${SRC}/protobuf/third_party/utf8_range
+    ${SRC}/abseil-cpp
     )
 
 add_library(libadb_sysdeps STATIC
@@ -236,7 +278,9 @@ target_include_directories(libfastdeploy PRIVATE
     ${SRC}/adb
     ${SRC}/core/libcutils/include
     ${SRC}/libbase/include
-    ${SRC}/protobuf/src
+        ${SRC}/protobuf/src
+    ${SRC}/protobuf/third_party/utf8_range
+    ${SRC}/abseil-cpp
     ${SRC}/boringssl/include
     )
 
@@ -248,6 +292,11 @@ target_include_directories(libcrypto PRIVATE
     ${SRC}/boringssl/include
     )
 
+set(ADB_FASTDEPLOY_CALLBACKS)
+if(EXISTS "${SRC}/adb/client/fastdeploycallbacks.cpp")
+    list(APPEND ADB_FASTDEPLOY_CALLBACKS "${SRC}/adb/client/fastdeploycallbacks.cpp")
+endif()
+
 add_executable(adb
     ${SRC}/adb/client/adb_client.cpp
     ${SRC}/adb/client/bugreport.cpp
@@ -258,7 +307,7 @@ add_executable(adb
     ${SRC}/adb/client/adb_install.cpp
     ${SRC}/adb/client/line_printer.cpp
     ${SRC}/adb/client/fastdeploy.cpp
-    ${SRC}/adb/client/fastdeploycallbacks.cpp
+    ${ADB_FASTDEPLOY_CALLBACKS}
     ${SRC}/adb/client/incremental.cpp
     ${SRC}/adb/client/incremental_server.cpp
     ${SRC}/adb/client/incremental_utils.cpp
@@ -267,7 +316,13 @@ add_executable(adb
     )
 target_include_directories(adb PRIVATE
     ${SRC}/adb
+    ${SRC}/libusb
+    ${SRC}/libusb/include
+    ${SRC}/openscreen
     ${SRC}/adb/proto
+    ${SRC}/protobuf/src
+    ${SRC}/protobuf/third_party/utf8_range
+    ${SRC}/abseil-cpp
     ${SRC}/adb/fastdeploy/deployagent
     ${SRC}/lz4/lib
     ${SRC}/zstd/lib
@@ -277,7 +332,8 @@ target_include_directories(adb PRIVATE
     ${SRC}/core/libcrypto_utils/include 
     ${SRC}/boringssl/include
     ${SRC}/googletest/googletest/include
-    )
+        ${SRC}/brotli/c/include
+)
 target_compile_definitions(adb PRIVATE 
     -D_GNU_SOURCE
     -DADB_HOST=1

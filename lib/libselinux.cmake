@@ -43,6 +43,7 @@ add_library(libselinux STATIC
     ${SRC}/selinux/libselinux/src/label.c
     ${SRC}/selinux/libselinux/src/label_backends_android.c
     ${SRC}/selinux/libselinux/src/label_file.c
+    ${SRC}/selinux/libselinux/src/hashtab.c
     ${SRC}/selinux/libselinux/src/label_support.c
     ${SRC}/selinux/libselinux/src/lgetfilecon.c
     ${SRC}/selinux/libselinux/src/load_policy.c
@@ -66,6 +67,7 @@ add_library(libselinux STATIC
 target_compile_definitions(libselinux PRIVATE
     -DAUDITD_LOG_TAG=1003 
     -D_GNU_SOURCE 
+    -DHAVE_REALLOCARRAY
     -DHOST 
     -DUSE_PCRE2
     -DNO_PERSISTENTLY_STORED_PATTERNS 
@@ -75,6 +77,7 @@ target_compile_definitions(libselinux PRIVATE
     -DNO_X_BACKEND 
     -DNO_DB_BACKEND
     -DPCRE2_CODE_UNIT_WIDTH=8
+    $<$<BOOL:${ANDROID}>:HAVE_STRLCPY>
     )
     
 target_include_directories(libselinux PRIVATE

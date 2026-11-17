@@ -16,7 +16,8 @@
 
 project(platform-tools)
 # executable files output path
-set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin/${PROJECT_NAME})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/${PROJECT_NAME})
+set(EXECUTABLE_OUTPUT_PATH ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
 # this tool has removed by google
 #include(dmtracedump.cmake)
@@ -26,5 +27,5 @@ include(sqlite3.cmake)
 include(etc1tool.cmake)
 include(e2fsprogs.cmake)
 include(f2fs-tools.cmake)
-include(fastboot.cmake)
 include(adb.cmake)
+include(fastboot.cmake)

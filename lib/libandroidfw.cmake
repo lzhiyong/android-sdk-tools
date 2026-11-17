@@ -32,6 +32,7 @@ add_library(libandroidfw STATIC
     ${SRC}/base/libs/androidfw/LoadedArsc.cpp
     ${SRC}/base/libs/androidfw/Locale.cpp
     ${SRC}/base/libs/androidfw/LocaleData.cpp
+    ${SRC}/base/libs/androidfw/LocaleDataLookup.cpp
     ${SRC}/base/libs/androidfw/misc.cpp
     ${SRC}/base/libs/androidfw/NinePatch.cpp
     ${SRC}/base/libs/androidfw/ObbFile.cpp

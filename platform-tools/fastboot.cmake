@@ -27,18 +27,36 @@ target_include_directories(libext4 PRIVATE
     ${SRC}/libbase/include
     )
 
-add_library(libfsmgr STATIC
-    ${SRC}/core/fs_mgr/liblp/images.cpp
-    ${SRC}/core/fs_mgr/liblp/builder.cpp
-    ${SRC}/core/fs_mgr/liblp/super_layout_builder.cpp
-    ${SRC}/core/fs_mgr/liblp/property_fetcher.cpp
-    ${SRC}/core/fs_mgr/liblp/partition_opener.cpp
-    ${SRC}/core/fs_mgr/liblp/reader.cpp
-    ${SRC}/core/fs_mgr/liblp/utility.cpp
-    ${SRC}/core/fs_mgr/liblp/writer.cpp
-    )
+# Android 17 moved fs_mgr out of platform/system/core into
+# platform/system/fs/fs_mgr. Android 16 and earlier keep the old location.
+if(EXISTS "${SRC}/fs_mgr/liblp/images.cpp")
+    set(FSMGR_ROOT "${SRC}/fs_mgr")
+else()
+    set(FSMGR_ROOT "${SRC}/core/fs_mgr")
+endif()
+
+set(FSMGR_SOURCE_CANDIDATES
+    ${FSMGR_ROOT}/liblp/images.cpp
+    ${FSMGR_ROOT}/liblp/builder.cpp
+    ${FSMGR_ROOT}/liblp/super_layout_builder.cpp
+    ${FSMGR_ROOT}/liblp/property_fetcher.cpp
+    ${FSMGR_ROOT}/liblp/partition_opener.cpp
+    ${FSMGR_ROOT}/liblp/reader.cpp
+    ${FSMGR_ROOT}/liblp/utility.cpp
+    ${FSMGR_ROOT}/liblp/writer.cpp
+)
+set(FSMGR_SOURCES)
+foreach(source IN LISTS FSMGR_SOURCE_CANDIDATES)
+    if(EXISTS "${source}")
+        list(APPEND FSMGR_SOURCES "${source}")
+    endif()
+endforeach()
+if(NOT FSMGR_SOURCES)
+    message(FATAL_ERROR "No libfsmgr sources found under ${FSMGR_ROOT}/liblp")
+endif()
+add_library(libfsmgr STATIC ${FSMGR_SOURCES})
 target_include_directories(libfsmgr PRIVATE
-    ${SRC}/core/fs_mgr/liblp/include 
+    ${FSMGR_ROOT}/liblp/include 
     ${SRC}/libbase/include
     ${SRC}/extras/ext4_utils/include 
     ${SRC}/core/libsparse/include
@@ -50,6 +68,7 @@ target_link_libraries(libfsmgr PUBLIC fmt::fmt)
 add_executable(fastboot
     ${SRC}/core/fastboot/bootimg_utils.cpp
     ${SRC}/core/fastboot/fastboot.cpp
+    ${SRC}/core/fastboot/h2h_workaround.cpp
     ${SRC}/core/fastboot/fastboot_driver.cpp
     ${SRC}/core/fastboot/fs.cpp
     ${SRC}/core/fastboot/filesystem.cpp
@@ -72,8 +91,8 @@ target_include_directories(fastboot PRIVATE
     ${SRC}/core/include 
     ${SRC}/core/adb 
     ${SRC}/core/libsparse/include
-    ${SRC}/core/fs_mgr/liblp/include 
-    ${SRC}/core/fs_mgr/libstorage_literals 
+    ${FSMGR_ROOT}/liblp/include 
+    ${FSMGR_ROOT}/libstorage_literals 
     ${SRC}/libziparchive/include
     ${SRC}/extras/ext4_utils/include 
     ${SRC}/extras/f2fs_utils
@@ -88,6 +107,10 @@ target_compile_definitions(fastboot PRIVATE
     -DUSE_F2FS
     )
 target_link_libraries(fastboot
+    libadb
+    libusb
+    libmdnssd
+    libopenscreen
     libdiagnoseusb
     libsparse
     libziparchive

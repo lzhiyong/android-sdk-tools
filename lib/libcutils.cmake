@@ -55,6 +55,12 @@ else()
         )
 endif()
 
+
+# Android 17 moved toggle_O_NONBLOCK into this dedicated translation unit.
+if(EXISTS "${SRC}/core/libcutils/sockets_utils.cpp")
+    list(APPEND LIBCUTILS_SRC ${SRC}/core/libcutils/sockets_utils.cpp)
+endif()
+
 add_library(libcutils STATIC ${LIBCUTILS_SRC})
 
 target_compile_definitions(libcutils PRIVATE 

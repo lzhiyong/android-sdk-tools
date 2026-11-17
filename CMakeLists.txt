@@ -24,6 +24,9 @@ endif()
 
 project(sdk-tools C CXX ASM)
 
+# Android NDK has no glibc getrandom feature macros; Expat uses the kernel entropy device.
+add_compile_definitions(XML_DEV_URANDOM)
+
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 20)
 
@@ -58,6 +61,7 @@ message(STATUS "static link: ${SDK_STATIC}, strip: ${SDK_STRIP}")
 # options of the third-party projects
 set(protobuf_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(protobuf_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+set(protobuf_INSTALL OFF CACHE BOOL "" FORCE)
 set(ABSL_PROPAGATE_CXX_STD ON CACHE BOOL "" FORCE)
 set(PNG_TESTS OFF CACHE BOOL "" FORCE)
 
@@ -93,6 +97,14 @@ endif()
 
 # thrid-party libraries
 add_subdirectory(src/boringssl EXCLUDE_FROM_ALL)
+# BoringSSL's standalone CMake currently pins its targets to GNU C++14,
+# while its span implementation requires C++17 type traits.
+if(TARGET crypto)
+    target_compile_options(crypto PRIVATE -std=gnu++17)
+endif()
+if(TARGET ssl)
+    target_compile_options(ssl PRIVATE -std=gnu++17)
+endif()
 add_subdirectory(src/fmtlib EXCLUDE_FROM_ALL)
 add_subdirectory(src/pcre EXCLUDE_FROM_ALL)
 add_subdirectory(src/libpng EXCLUDE_FROM_ALL)
@@ -101,7 +113,40 @@ add_subdirectory(src/jsoncpp EXCLUDE_FROM_ALL)
 add_subdirectory(src/expat/expat EXCLUDE_FROM_ALL)
 add_subdirectory(src/zstd/build/cmake EXCLUDE_FROM_ALL)
 add_subdirectory(src/lz4/build/cmake EXCLUDE_FROM_ALL)
+# ADB links the package-mode static Brotli archives. The AOSP Brotli
+# CMake project creates *-static targets only when this option is enabled.
+set(BROTLI_BUILD_FOR_PACKAGE ON CACHE BOOL "" FORCE)
+set(BROTLI_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
 add_subdirectory(src/brotli EXCLUDE_FROM_ALL)
+
+# Some AOSP Brotli revisions do not expose the package static targets to
+# the parent project even when BROTLI_BUILD_FOR_PACKAGE is requested.
+# Define the three archives explicitly when the upstream targets are absent.
+if(NOT TARGET brotlicommon-static OR NOT TARGET brotlidec-static OR NOT TARGET brotlienc-static)
+    file(GLOB_RECURSE BROTLI_COMMON_SOURCES CONFIGURE_DEPENDS ${SRC}/brotli/c/common/*.c)
+    file(GLOB_RECURSE BROTLI_DEC_SOURCES CONFIGURE_DEPENDS ${SRC}/brotli/c/dec/*.c)
+    file(GLOB_RECURSE BROTLI_ENC_SOURCES CONFIGURE_DEPENDS ${SRC}/brotli/c/enc/*.c)
+
+    if(NOT TARGET brotlicommon-static)
+        add_library(brotlicommon-static STATIC ${BROTLI_COMMON_SOURCES})
+        target_include_directories(brotlicommon-static PUBLIC ${SRC}/brotli/c/include)
+    endif()
+    if(NOT TARGET brotlidec-static)
+        add_library(brotlidec-static STATIC ${BROTLI_DEC_SOURCES})
+        target_include_directories(brotlidec-static PUBLIC ${SRC}/brotli/c/include)
+        target_link_libraries(brotlidec-static PUBLIC brotlicommon-static)
+    endif()
+    if(NOT TARGET brotlienc-static)
+        add_library(brotlienc-static STATIC ${BROTLI_ENC_SOURCES})
+        target_include_directories(brotlienc-static PUBLIC ${SRC}/brotli/c/include)
+        target_link_libraries(brotlienc-static PUBLIC brotlicommon-static)
+    endif()
+endif()
+# Abseil adds the Android system library "log" to its link interface.
+# Keep its NDK-provided log target, but make -llog resolve to our bundled
+# static liblog archive. The NDK toolchain may already define an imported
+# target named "log", so creating a replacement interface target is not
+# reliable.
 add_subdirectory(src/abseil-cpp EXCLUDE_FROM_ALL)
 add_subdirectory(src/protobuf EXCLUDE_FROM_ALL)
 add_subdirectory(src/googletest EXCLUDE_FROM_ALL)
@@ -109,6 +154,16 @@ add_subdirectory(src/tinyxml2 EXCLUDE_FROM_ALL)
 
 # building sdk-tools
 add_subdirectory(lib)
+
+if(ANDROID)
+    # liblog is built from AOSP sources above. Give the archive the canonical
+    # liblog.a filename and add its output directory to the linker search path
+    # so Abseil's -llog resolves to this static archive instead of the NDK's
+    # shared-only liblog.so (which cannot be used by a fully static link).
+    set_target_properties(liblog PROPERTIES OUTPUT_NAME log)
+    link_directories("${CMAKE_BINARY_DIR}/lib")
+endif()
+
 add_subdirectory(build-tools)
 add_subdirectory(platform-tools)
 add_subdirectory(others)
