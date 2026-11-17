@@ -264,7 +264,7 @@ def ensure_libbase_ndk_private_property_api():
             raise RuntimeError('cannot locate system_properties.h include in {}'.format(path))
         text = text.replace(
             public_include,
-            public_include + '\\n#define _REALLY_INCLUDE_SYS__SYSTEM_PROPERTIES_H_\\n' + private_include,
+            public_include + '\n#define _REALLY_INCLUDE_SYS__SYSTEM_PROPERTIES_H_\n' + private_include,
             1,
         )
         path.write_text(text)
