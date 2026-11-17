@@ -173,6 +173,7 @@ target_include_directories(libadb PRIVATE
     ${SRC}/libziparchive/include
     ${SRC}/native/include
     ${SRC}/protobuf/src
+    ${SRC}/protobuf/third_party/utf8_range
     ${SRC}/zstd/lib
     ${SRC}/libusb/include
     ${SRC}/brotli/c/include
