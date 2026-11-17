@@ -22,13 +22,18 @@ HOST_D8="$ANDROID_HOME/build-tools/35.0.0/d8"
 HOST_APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
 test -f "$ANDROID_JAR" && test -f "$HOST_D8" && test -f "$HOST_APKSIGNER"
 
-mkdir -p "$WORK/project/res/values" "$WORK/project/res/layout" "$WORK/project/assets" \
-  "$WORK/project/src/com/example/sdktoolstest" "$WORK/project/aidl/com/example/sdktoolstest" \
-  "$WORK/project/classes" "$WORK/project/dex" "$WORK/project/gen"
+mkdir -p "$WORK/project/res/values" "$WORK/project/res/layout" "$WORK/project/res/drawable" \
+  "$WORK/project/res/menu" "$WORK/project/res/xml" "$WORK/project/res/anim" \
+  "$WORK/project/res/color" "$WORK/project/res/raw" "$WORK/project/res/drawable-mdpi" \
+  "$WORK/project/assets" "$WORK/project/src/com/example/sdktoolstest" \
+  "$WORK/project/aidl/com/example/sdktoolstest" "$WORK/project/classes" \
+  "$WORK/project/dex" "$WORK/project/gen"
 cat > "$WORK/project/AndroidManifest.xml" <<'EOF'
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.example.sdktoolstest">
     <uses-sdk android:minSdkVersion="23" android:targetSdkVersion="35"/>
-    <application android:label="@string/app_name" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+    <application android:label="@string/app_name" android:icon="@drawable/vector_probe"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
@@ -47,15 +52,51 @@ EOF
 cat > "$WORK/project/res/values/colors.xml" <<'EOF'
 <resources><color name="probe_color">#ff336699</color></resources>
 EOF
-cat > "$WORK/project/res/layout/activity_main.xml" <<'EOF'
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent" android:layout_height="match_parent"
-    android:orientation="vertical">
-    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:text="@string/resource_probe" android:textColor="@color/probe_color"/>
-</LinearLayout>
+cat > "$WORK/project/res/values/dimens.xml" <<'EOF'
+<resources><dimen name="probe_padding">12dp</dimen></resources>
 EOF
+cat > "$WORK/project/res/drawable/vector_probe.xml" <<'EOF'
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="@color/probe_color" android:pathData="M12,2L22,22H2Z"/>
+</vector>
+EOF
+cat > "$WORK/project/res/drawable/shape_probe.xml" <<'EOF'
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/probe_color"/>
+    <corners android:radius="8dp"/>
+</shape>
+EOF
+cat > "$WORK/project/res/menu/main.xml" <<'EOF'
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/action_probe" android:title="@string/resource_probe"/>
+</menu>
+EOF
+cat > "$WORK/project/res/xml/network_security_config.xml" <<'EOF'
+<network-security-config><base-config cleartextTrafficPermitted="false"/></network-security-config>
+EOF
+cat > "$WORK/project/res/anim/fade_in.xml" <<'EOF'
+<alpha xmlns:android="http://schemas.android.com/apk/res/android"
+    android:fromAlpha="0.0" android:toAlpha="1.0" android:duration="100"/>
+EOF
+cat > "$WORK/project/res/color/probe_selector.xml" <<'EOF'
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_pressed="true" android:color="@color/probe_color"/>
+    <item android:color="@android:color/black"/>
+</selector>
+EOF
+printf 'raw-resource-payload\n' > "$WORK/project/res/raw/probe.txt"
 printf 'asset pipeline probe\n' > "$WORK/project/assets/pipeline.txt"
+python3 - "$WORK/project/res/drawable-mdpi/pixel.png" <<'PY'
+import struct, sys, zlib
+def chunk(kind, data):
+    return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xffffffff)
+png = b"\x89PNG\r\n\x1a\n"
+png += chunk(b"IHDR", struct.pack(">2I5B", 1, 1, 8, 6, 0, 0, 0))
+png += chunk(b"IDAT", zlib.compress(b"\x00\xff\x00\x00\xff"))
+png += chunk(b"IEND", b"")
+open(sys.argv[1], "wb").write(png)
+PY
 cat > "$WORK/project/src/com/example/sdktoolstest/MainActivity.java" <<'EOF'
 package com.example.sdktoolstest;
 import android.app.Activity;
@@ -66,6 +107,15 @@ public final class MainActivity extends Activity {
         setContentView(R.layout.activity_main);
     }
 }
+EOF
+cat > "$WORK/project/res/layout/activity_main.xml" <<'EOF'
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:padding="@dimen/probe_padding" android:background="@drawable/shape_probe"
+    android:orientation="vertical">
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="@string/resource_probe" android:textColor="@color/probe_selector"/>
+</LinearLayout>
 EOF
 cat > "$WORK/project/aidl/com/example/sdktoolstest/ITest.aidl" <<'EOF'
 package com.example.sdktoolstest;
@@ -104,11 +154,14 @@ adb shell "$REMOTE/aapt2" link -o "$REMOTE/out/resources.apk" -I "$REMOTE/androi
   --auto-add-overlay -R "$REMOTE/out/compiled.zip" --asset-dir "$REMOTE/project/assets"
 adb shell "$REMOTE/aidl-bin" --lang=java -o "$REMOTE/out/aidl" \
   "$REMOTE/project/aidl/com/example/sdktoolstest/ITest.aidl"
+adb shell test -f "$REMOTE/out/aidl/com/example/sdktoolstest/ITest.java"
 adb pull "$REMOTE/out/resources.apk" "$WORK/resources.apk" >/dev/null
 adb pull "$REMOTE/out/gen" "$WORK/project/gen" >/dev/null
+adb pull "$REMOTE/out/aidl" "$WORK/project/aidl-generated" >/dev/null
 
 javac -source 8 -target 8 -bootclasspath "$ANDROID_JAR" -d "$WORK/project/classes" \
   "$WORK/project/gen/com/example/sdktoolstest/R.java" \
+  "$WORK/project/aidl-generated/com/example/sdktoolstest/ITest.java" \
   "$WORK/project/src/com/example/sdktoolstest/MainActivity.java" 2>/dev/null
 "$HOST_D8" --lib "$ANDROID_JAR" --min-api 23 --output "$WORK/project/dex" "$WORK/project/classes"
 adb push "$WORK/project/dex/classes.dex" "$REMOTE/out/classes.dex" >/dev/null
@@ -123,6 +176,7 @@ adb pull "$REMOTE/out/aligned.apk" "$WORK/aligned.apk" >/dev/null
 "$HOST_APKSIGNER" sign --ks "$KEYSTORE" --ks-key-alias androiddebugkey \
   --ks-pass pass:android --key-pass pass:android --out "$WORK/app.apk" "$WORK/aligned.apk"
 "$HOST_APKSIGNER" verify --verbose "$WORK/app.apk"
+unzip -p "$WORK/app.apk" assets/pipeline.txt | grep -q "asset pipeline probe"
 adb install -r "$WORK/app.apk"
 adb logcat -c
 adb shell am force-stop com.example.sdktoolstest
@@ -134,4 +188,4 @@ if adb logcat -d -s AndroidRuntime:E | grep -q "FATAL EXCEPTION"; then
   echo "Application crashed after launch" >&2
   exit 1
 fi
-echo "PASS: AAPT2 XML compile/link, generated R.java, AIDL, DEX, zipalign, APK signing, install and launch ($VERSION x86_64)"
+echo "PASS: AAPT2 XML/vector/shape/menu/color/animation/raw/PNG/assets, AIDL, DEX, zipalign, APK signing, install and launch ($VERSION x86_64)"
