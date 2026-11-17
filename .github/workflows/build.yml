@@ -136,6 +136,7 @@ jobs:
           cache: false
 
       - name: Restore sources
+        id: sources
         uses: actions/cache/restore@v4
         with:
           path: |
@@ -143,7 +144,13 @@ jobs:
             !src/**/.git
             host-tools
           key: ${{ needs.prepare.outputs.cache-key }}
-          fail-on-cache-miss: true
+
+      - name: Fetch sources when cache restore is unavailable
+        if: steps.sources.outputs.cache-hit != 'true'
+        run: |
+          rm -rf src host-tools
+          python3 get_source.py --tags "${{ needs.prepare.outputs.source-tag }}"
+          python3 build.py --protoc-only --protoc-output host-tools/protoc
 
       - name: Setup NDK
         id: ndk
