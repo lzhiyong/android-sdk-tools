@@ -376,6 +376,7 @@ def ensure_bionic_private_property_headers():
         'src/libbase/properties.cpp',
         'src/logging/liblog/properties.cpp',
         'src/core/libcutils/trace-dev.inc',
+        'src/selinux/libselinux/src/android/android_device.c',
     )
     public_include = '#include <sys/system_properties.h>'
     private_include = '#include <sys/_system_properties.h>'
