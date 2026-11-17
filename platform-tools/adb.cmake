@@ -149,6 +149,8 @@ set(ADB_CORE_SOURCE_CANDIDATES
     ${SRC}/adb/client/transport_mdns.cpp
     ${SRC}/adb/client/transport_usb.cpp
     ${SRC}/adb/client/pairing/pairing_client.cpp
+    ${SRC}/adb/client/netlink.cpp
+    ${SRC}/adb/client/mdns_service_discovery.cpp
     ${SRC}/adb/client/usb_linux.cpp
     ${SRC}/adb/fdevent/fdevent_epoll.cpp
     ${SRC}/adb/sysdeps_unix.cpp
