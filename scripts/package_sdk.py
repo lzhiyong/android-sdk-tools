@@ -31,6 +31,20 @@ def download(url, path):
         raise RuntimeError("Invalid Google SDK ZIP: " + url)
 
 
+def download_first_available(urls, path):
+    """Download the first published official archive from an ordered URL list."""
+    for url in urls:
+        result = subprocess.run(
+            ["curl", "-fLsS", "--retry", "0", "-o", str(path), url],
+            check=False,
+        )
+        if result.returncode == 0 and zipfile.is_zipfile(path):
+            print("Using official Build Tools archive:", url)
+            return
+        path.unlink(missing_ok=True)
+    raise RuntimeError("No published official Build Tools archive found: " + ", ".join(urls))
+
+
 def extract(path, dest):
     with zipfile.ZipFile(path) as archive:
         bad = archive.testzip()
@@ -76,17 +90,24 @@ def main():
             f"https://dl.google.com/android/repository/platform-tools_r{args.version}-linux.zip",
             pt_zip,
         )
-        # Google omits the trailing .0.0 in the archive filename for
-        # the initial major Build Tools release (for example, 35.0.0 is
-        # published as build-tools_r35_linux.zip). Patch releases retain
-        # their full version in the filename (35.0.1 -> build-tools_r35.0.1_linux.zip).
-        build_tools_archive_version = args.version
-        if args.version.endswith(".0.0"):
-            build_tools_archive_version = args.version.rsplit(".", 2)[0]
-        download(
-            f"https://dl.google.com/android/repository/build-tools_r{build_tools_archive_version}_linux.zip",
-            bt_zip,
-        )
+        # Platform Tools and Build Tools have independent release trains.
+        # Prefer an exact matching Build Tools archive, then the official major
+        # release archive, followed by published preview archives for that major.
+        major = args.version.split(".", 1)[0]
+        build_tools_versions = []
+        exact = args.version
+        if exact.endswith(".0.0"):
+            exact = exact.rsplit(".", 2)[0]
+        build_tools_versions.append(exact)
+        build_tools_versions.append(major)
+        build_tools_versions.extend([f"{major}-rc2", f"{major}-rc1"])
+        # Keep order while removing duplicate candidates.
+        build_tools_versions = list(dict.fromkeys(build_tools_versions))
+        build_tools_urls = [
+            f"https://dl.google.com/android/repository/build-tools_r{version}_linux.zip"
+            for version in build_tools_versions
+        ]
+        download_first_available(build_tools_urls, bt_zip)
 
         pt_extract = root / "platform-tools-extracted"
         bt_extract = root / "build-tools-extracted"
