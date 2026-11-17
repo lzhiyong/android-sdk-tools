@@ -39,7 +39,7 @@ def download_first_available(urls, path):
             check=False,
         )
         if result.returncode == 0 and zipfile.is_zipfile(path):
-            print("Using official Build Tools archive:", url)
+            print("Using official SDK archive:", url)
             return
         path.unlink(missing_ok=True)
     raise RuntimeError("No published official Build Tools archive found: " + ", ".join(urls))
@@ -86,10 +86,17 @@ def main():
         root = Path(temp)
         pt_zip = root / "platform-tools.zip"
         bt_zip = root / "build-tools.zip"
-        download(
-            f"https://dl.google.com/android/repository/platform-tools_r{args.version}-linux.zip",
-            pt_zip,
-        )
+        # Platform Tools 37.0.2 never graduated beyond Canary; Google only
+        # publishes the 37.0.1 stable archive. Use it as the untouched base and
+        # replace the native executables with the branch's 37.0.2 builds below.
+        platform_tools_versions = [args.version]
+        if args.version == "37.0.2":
+            platform_tools_versions.append("37.0.1")
+        platform_tools_urls = [
+            f"https://dl.google.com/android/repository/platform-tools_r{version}-linux.zip"
+            for version in platform_tools_versions
+        ]
+        download_first_available(platform_tools_urls, pt_zip)
         # Platform Tools and Build Tools have independent release trains.
         # Prefer an exact matching Build Tools archive, then the official major
         # release archive, followed by published preview archives for that major.
@@ -101,6 +108,10 @@ def main():
         build_tools_versions.append(exact)
         build_tools_versions.append(major)
         build_tools_versions.extend([f"{major}-rc2", f"{major}-rc1"])
+        # Android Gradle Plugin 9.x still specifies Build Tools 36.0.0 as its
+        # default for API 37; no official Build Tools 37.x archive is published.
+        if int(major) >= 36:
+            build_tools_versions.append("36.0.0")
         # Keep order while removing duplicate candidates.
         build_tools_versions = list(dict.fromkeys(build_tools_versions))
         build_tools_urls = [
