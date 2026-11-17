@@ -151,7 +151,7 @@ adb shell "$REMOTE/aapt2" compile --dir "$REMOTE/project/res" -o "$REMOTE/out/co
 adb shell "$REMOTE/aapt2" link -o "$REMOTE/out/resources.apk" -I "$REMOTE/android.jar" \
   --manifest "$REMOTE/project/AndroidManifest.xml" --java "$REMOTE/out/gen" \
   --min-sdk-version 23 --target-sdk-version 35 --version-code 1 --version-name 1.0 \
-  --auto-add-overlay -R "$REMOTE/out/compiled.zip" --asset-dir "$REMOTE/project/assets"
+  --auto-add-overlay -R "$REMOTE/out/compiled.zip" -A "$REMOTE/project/assets"
 adb shell "$REMOTE/aidl-bin" --lang=java -o "$REMOTE/out/aidl" \
   "$REMOTE/project/aidl/com/example/sdktoolstest/ITest.aidl"
 adb shell test -f "$REMOTE/out/aidl/com/example/sdktoolstest/ITest.java"
