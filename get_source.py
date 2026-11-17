@@ -550,6 +550,77 @@ def patches():
     ensure_liblog_api37_ndk_compat()
 
 
+
+def ensure_androidfw_combined_iterator_swap_compat():
+    """Add an ADL-visible rvalue swap overload for CombinedIterator proxy references."""
+    path = ROOT / 'src/base/libs/androidfw/include/androidfw/CombinedIterator.h'
+    if not path.exists():
+        raise RuntimeError('CombinedIterator.h not found: {}'.format(path))
+    text = path.read_text()
+    signature = 'friend void swap(RefPair& l, RefPair& r)'
+    rvalue_signature = 'friend void swap(RefPair&& l, RefPair&& r)'
+    if rvalue_signature not in text:
+        start = text.find(signature)
+        if start < 0:
+            raise RuntimeError('RefPair lvalue swap overload not found in {}'.format(path))
+        brace = text.find('{', start)
+        depth = 0
+        end = -1
+        for index in range(brace, len(text)):
+            if text[index] == '{':
+                depth += 1
+            elif text[index] == '}':
+                depth -= 1
+                if depth == 0:
+                    end = index + 1
+                    break
+        if end < 0:
+            raise RuntimeError('cannot parse RefPair swap body in {}'.format(path))
+        body = text[start:end]
+        overload = body.replace(signature, rvalue_signature, 1)
+        text = text[:end] + '\n\n  ' + overload.strip() + text[end:]
+        path.write_text(text)
+        print('androidfw: installed rvalue RefPair swap overload', flush=True)
+    if rvalue_signature not in path.read_text():
+        raise RuntimeError('rvalue RefPair swap overload missing after patch')
+
+
+def ensure_androidfw_locale_constexpr_compat():
+    """Make reinterpret_cast-based locale packers ordinary inline functions."""
+    import re
+    path = ROOT / 'src/base/libs/androidfw/include/androidfw/LocaleDataLookup.h'
+    if not path.exists():
+        raise RuntimeError('LocaleDataLookup.h not found: {}'.format(path))
+    text = path.read_text()
+    fixed = re.sub(
+        r'\bconstexpr\s+(?=(?:inline\s+)?uint32_t\s+pack(?:Locale|Script)\s*\()',
+        '',
+        text,
+    )
+    if fixed != text:
+        path.write_text(fixed)
+        print('androidfw: removed invalid constexpr from locale packers', flush=True)
+    verified = path.read_text()
+    if re.search(r'\bconstexpr\s+(?=(?:inline\s+)?uint32_t\s+pack(?:Locale|Script)\s*\()', verified):
+        raise RuntimeError('invalid locale packer constexpr remains in {}'.format(path))
+
+
+def ensure_expat_android_entropy_source():
+    """Enable Expat's real /dev/urandom entropy implementation for Android."""
+    path = ROOT / 'CMakeLists.txt'
+    text = path.read_text()
+    anchor = 'add_subdirectory(src/expat/expat EXCLUDE_FROM_ALL)'
+    if anchor not in text:
+        raise RuntimeError('cannot locate Expat subdirectory in {}'.format(path))
+    definition = 'add_compile_definitions(XML_DEV_URANDOM)'
+    if definition not in text:
+        text = text.replace(anchor, definition + '\n' + anchor, 1)
+        path.write_text(text)
+        print('Expat: enabled XML_DEV_URANDOM globally before adding Expat', flush=True)
+    if definition not in path.read_text():
+        raise RuntimeError('XML_DEV_URANDOM definition missing from {}'.format(path))
+
+
 def main():
     version = tools_version()
     parser = argparse.ArgumentParser()
@@ -580,6 +651,9 @@ def main():
 
     if not args.skip_patch:
         patches()
+        ensure_expat_android_entropy_source()
+        ensure_androidfw_locale_constexpr_compat()
+        ensure_androidfw_combined_iterator_swap_compat()
 
     print('download success!!')
 
