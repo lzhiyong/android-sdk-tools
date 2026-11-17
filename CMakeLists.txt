@@ -113,6 +113,10 @@ add_subdirectory(src/jsoncpp EXCLUDE_FROM_ALL)
 add_subdirectory(src/expat/expat EXCLUDE_FROM_ALL)
 add_subdirectory(src/zstd/build/cmake EXCLUDE_FROM_ALL)
 add_subdirectory(src/lz4/build/cmake EXCLUDE_FROM_ALL)
+# ADB links the package-mode static Brotli archives. The AOSP Brotli
+# CMake project creates *-static targets only when this option is enabled.
+set(BROTLI_BUILD_FOR_PACKAGE ON CACHE BOOL "" FORCE)
+set(BROTLI_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
 add_subdirectory(src/brotli EXCLUDE_FROM_ALL)
 # Abseil adds the Android system library "log" to its link interface.
 # Keep its NDK-provided log target, but make -llog resolve to our bundled
