@@ -135,6 +135,11 @@ set(ADB_CORE_SOURCE_CANDIDATES
     ${SRC}/adb/client/auth.cpp
     ${SRC}/adb/client/adb_wifi.cpp
     ${SRC}/adb/client/usb_libusb.cpp
+    ${SRC}/adb/client/detach.cpp
+    ${SRC}/adb/client/usb_libusb_device.cpp
+    ${SRC}/adb/client/usb_libusb_hotplug.cpp
+    ${SRC}/adb/client/usb_libusb_inhouse_hotplug.cpp
+    ${SRC}/adb/client/transport_emulator.cpp
     ${SRC}/adb/client/transport_local.cpp
     ${SRC}/adb/client/mdnsresponder_client.cpp
     ${SRC}/adb/client/mdns_utils.cpp
@@ -155,6 +160,8 @@ endforeach()
 
 add_library(libadb STATIC
     ${ADB_CORE_SOURCES}
+    ${ADB_OPENSCREEN_SOURCES}
+    ${ADB_PROTO_SRC}
     )
 target_compile_definitions(libadb PRIVATE 
     -D_GNU_SOURCE
@@ -304,6 +311,8 @@ add_executable(adb
     )
 target_include_directories(adb PRIVATE
     ${SRC}/adb
+    ${SRC}/libusb
+    ${SRC}/libusb/include
     ${SRC}/openscreen
     ${SRC}/adb/proto
     ${SRC}/protobuf/src
@@ -318,7 +327,8 @@ target_include_directories(adb PRIVATE
     ${SRC}/core/libcrypto_utils/include 
     ${SRC}/boringssl/include
     ${SRC}/googletest/googletest/include
-    )
+        ${SRC}/brotli/c/include
+)
 target_compile_definitions(adb PRIVATE 
     -D_GNU_SOURCE
     -DADB_HOST=1
