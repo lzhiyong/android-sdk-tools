@@ -389,6 +389,70 @@ def ensure_liblog_api37_ndk_compat():
 
 
 
+
+def ensure_androidfw_combined_iterator_swap_compat():
+    """Make CombinedIterator's proxy reference swappable when dereference returns a temporary."""
+    path = ROOT / 'src/base/libs/androidfw/include/androidfw/CombinedIterator.h'
+    if not path.exists():
+        raise RuntimeError('CombinedIterator.h not found: {}'.format(path))
+    text = path.read_text()
+    anchor = 'friend void swap(RefPair& l, RefPair& r)'
+    if anchor in text and 'friend void swap(RefPair&& l, RefPair&& r)' not in text:
+        start = text.find(anchor)
+        brace = text.find('{', start)
+        depth = 0
+        end = -1
+        for index in range(brace, len(text)):
+            if text[index] == '{':
+                depth += 1
+            elif text[index] == '}':
+                depth -= 1
+                if depth == 0:
+                    end = index + 1
+                    break
+        if end < 0:
+            raise RuntimeError('cannot locate RefPair swap body in {}'.format(path))
+        body = text[brace:end]
+        rvalue_body = body.replace('friend void swap(RefPair& l, RefPair& r)',
+                                   'friend void swap(RefPair&& l, RefPair&& r)', 1)
+        text = text[:end] + '\n\n  ' + rvalue_body.strip() + text[end:]
+        path.write_text(text)
+        print('androidfw: added rvalue RefPair swap for proxy iterators', flush=True)
+    verified = path.read_text()
+    if 'friend void swap(RefPair&& l, RefPair&& r)' not in verified:
+        raise RuntimeError('rvalue RefPair swap overload missing in {}'.format(path))
+
+
+def ensure_boringssl_arm_asm_comment_compat():
+    """Avoid apostrophes in ARM assembly comments being tokenized by the C preprocessor."""
+    path = ROOT / 'src/boringssl/src/gen/bcm/vpaes-armv7-linux.S'
+    if not path.exists():
+        return
+    text = path.read_text()
+    fixed = text.replace("Apple's toolchain", 'Apple toolchain')
+    if fixed != text:
+        path.write_text(fixed)
+        print('BoringSSL: normalized apostrophe in ARM assembly comment', flush=True)
+    if "Apple's toolchain" in path.read_text():
+        raise RuntimeError('preprocessor-incompatible apostrophe remains in {}'.format(path))
+
+
+def ensure_expat_android_entropy_source():
+    """Select Expat's supported /dev/urandom entropy source on Android."""
+    path = ROOT / 'CMakeLists.txt'
+    text = path.read_text()
+    anchor = 'add_subdirectory(src/expat/expat EXCLUDE_FROM_ALL)'
+    definition = anchor + '\nif(TARGET expat)\n    target_compile_definitions(expat PRIVATE XML_DEV_URANDOM)\nendif()'
+    if anchor not in text:
+        raise RuntimeError('cannot locate Expat subdirectory in {}'.format(path))
+    if 'target_compile_definitions(expat PRIVATE XML_DEV_URANDOM)' not in text:
+        text = text.replace(anchor, definition, 1)
+        path.write_text(text)
+        print('Expat: enabled Android /dev/urandom entropy source', flush=True)
+    if 'target_compile_definitions(expat PRIVATE XML_DEV_URANDOM)' not in path.read_text():
+        raise RuntimeError('Expat Android entropy definition missing in {}'.format(path))
+
+
 def ensure_bionic_private_property_headers():
     """Expose Bionic private property serial APIs before including the public header."""
     sources = (
@@ -459,6 +523,9 @@ def patches():
     ensure_art_metrics_memory_order_compat()
     ensure_art_hash_set_allocator_compat()
     ensure_libbase_ndk_private_property_api()
+    ensure_androidfw_combined_iterator_swap_compat()
+    ensure_boringssl_arm_asm_comment_compat()
+    ensure_expat_android_entropy_source()
     ensure_bionic_private_property_headers()
     ensure_liblog_ndk_private_property_api()
     ensure_liblog_api37_ndk_compat()
