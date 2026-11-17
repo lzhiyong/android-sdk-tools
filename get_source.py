@@ -690,6 +690,27 @@ def ensure_androidfw_resize_and_overwrite_compat():
 
 
 
+
+def ensure_libprocessgroup_string_contains_compat():
+    """Translate C++23 std::string::contains calls to the C++17 find equivalent."""
+    import re
+    path = ROOT / 'src/core/libprocessgroup/util/util.cpp'
+    if not path.exists():
+        raise RuntimeError('libprocessgroup util.cpp not found: {}'.format(path))
+    source = path.read_text()
+    pattern = re.compile(r'([A-Za-z_][A-Za-z0-9_]*(?:(?:\\.|->)[A-Za-z_][A-Za-z0-9_]*)*)\\.contains\\(([^()]*)\\)')
+    fixed, count = pattern.subn(
+        lambda match: '(' + match.group(1) + '.find(' + match.group(2) + ') != std::string::npos)',
+        source,
+    )
+    if count:
+        path.write_text(fixed)
+        print('libprocessgroup: replaced {} C++23 string::contains call(s)'.format(count), flush=True)
+    if '.contains(' in path.read_text():
+        raise RuntimeError('unsupported string::contains remains in {}'.format(path))
+    if count == 0 and '.contains(' in source:
+        raise RuntimeError('could not parse string::contains call in {}'.format(path))
+
 def main():
     version = tools_version()
     parser = argparse.ArgumentParser()
@@ -722,6 +743,7 @@ def main():
         patches()
         ensure_expat_android_entropy_source()
         ensure_androidfw_generated_resource_header()
+        ensure_libprocessgroup_string_contains_compat()
         ensure_androidfw_combined_iterator_swap_compat()
         ensure_androidfw_locale_constexpr_compat()
         ensure_androidfw_resize_and_overwrite_compat()
