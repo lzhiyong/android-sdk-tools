@@ -24,7 +24,7 @@ test -f "$ANDROID_JAR" && test -f "$HOST_D8" && test -f "$HOST_APKSIGNER"
 
 mkdir -p "$WORK/project/res/values" "$WORK/project/res/layout" "$WORK/project/assets" \
   "$WORK/project/src/com/example/sdktoolstest" "$WORK/project/aidl/com/example/sdktoolstest" \
-  "$WORK/project/classes" "$WORK/project/dex"
+  "$WORK/project/classes" "$WORK/project/dex" "$WORK/project/gen"
 cat > "$WORK/project/AndroidManifest.xml" <<'EOF'
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.example.sdktoolstest">
     <uses-sdk android:minSdkVersion="23" android:targetSdkVersion="35"/>
@@ -60,13 +60,10 @@ cat > "$WORK/project/src/com/example/sdktoolstest/MainActivity.java" <<'EOF'
 package com.example.sdktoolstest;
 import android.app.Activity;
 import android.os.Bundle;
-import android.widget.TextView;
 public final class MainActivity extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        TextView view = new TextView(this);
-        view.setText("SDK Tools APK runtime probe");
-        setContentView(view);
+        setContentView(R.layout.activity_main);
     }
 }
 EOF
@@ -75,9 +72,6 @@ package com.example.sdktoolstest;
 interface ITest { int ping(); }
 EOF
 
-javac -source 8 -target 8 -bootclasspath "$ANDROID_JAR" -d "$WORK/project/classes" \
-  "$WORK/project/src/com/example/sdktoolstest/MainActivity.java" 2>/dev/null
-"$HOST_D8" --lib "$ANDROID_JAR" --min-api 23 --output "$WORK/project/dex" "$WORK/project/classes"
 KEYSTORE="$WORK/debug.keystore"
 if [ ! -f "$KEYSTORE" ]; then
   keytool -genkeypair -keystore "$KEYSTORE" -storepass android -keypass android \
@@ -98,12 +92,11 @@ adb push "$AAPT" "$REMOTE/aapt" >/dev/null
 adb push "$AIDL" "$REMOTE/aidl-bin" >/dev/null
 adb push "$ZIPALIGN" "$REMOTE/zipalign" >/dev/null
 adb push "$DEXDUMP" "$REMOTE/dexdump" >/dev/null
-adb push "$WORK/project/dex/classes.dex" "$REMOTE/out/classes.dex" >/dev/null
 adb shell chmod 755 "$REMOTE/aapt2" "$REMOTE/aapt" "$REMOTE/aidl-bin" "$REMOTE/zipalign" "$REMOTE/dexdump"
 
 adb shell "$REMOTE/aapt2" version
 adb shell "$REMOTE/aapt" version
-adb shell "$REMOTE/aidl-bin" --version
+adb shell "$REMOTE/aidl-bin" --help >/dev/null
 adb shell "$REMOTE/aapt2" compile --dir "$REMOTE/project/res" -o "$REMOTE/out/compiled.zip"
 adb shell "$REMOTE/aapt2" link -o "$REMOTE/out/resources.apk" -I "$REMOTE/android.jar" \
   --manifest "$REMOTE/project/AndroidManifest.xml" --java "$REMOTE/out/gen" \
@@ -111,8 +104,16 @@ adb shell "$REMOTE/aapt2" link -o "$REMOTE/out/resources.apk" -I "$REMOTE/androi
   --auto-add-overlay -R "$REMOTE/out/compiled.zip" --asset-dir "$REMOTE/project/assets"
 adb shell "$REMOTE/aidl-bin" --lang=java -o "$REMOTE/out/aidl" \
   "$REMOTE/project/aidl/com/example/sdktoolstest/ITest.aidl"
-adb shell "$REMOTE/dexdump" -f "$REMOTE/out/classes.dex" >/dev/null
 adb pull "$REMOTE/out/resources.apk" "$WORK/resources.apk" >/dev/null
+adb pull "$REMOTE/out/gen" "$WORK/project/gen" >/dev/null
+
+javac -source 8 -target 8 -bootclasspath "$ANDROID_JAR" -d "$WORK/project/classes" \
+  "$WORK/project/gen/com/example/sdktoolstest/R.java" \
+  "$WORK/project/src/com/example/sdktoolstest/MainActivity.java" 2>/dev/null
+"$HOST_D8" --lib "$ANDROID_JAR" --min-api 23 --output "$WORK/project/dex" "$WORK/project/classes"
+adb push "$WORK/project/dex/classes.dex" "$REMOTE/out/classes.dex" >/dev/null
+adb shell "$REMOTE/dexdump" -f "$REMOTE/out/classes.dex" >/dev/null
+
 cp "$WORK/resources.apk" "$WORK/unsigned.apk"
 (cd "$WORK/project/dex" && zip -q "$WORK/unsigned.apk" classes.dex)
 adb push "$WORK/unsigned.apk" "$REMOTE/out/unsigned.apk" >/dev/null
@@ -133,4 +134,4 @@ if adb logcat -d -s AndroidRuntime:E | grep -q "FATAL EXCEPTION"; then
   echo "Application crashed after launch" >&2
   exit 1
 fi
-echo "PASS: AAPT2 XML compile/link, AIDL, DEX, zipalign, APK signing, install and launch ($VERSION x86_64)"
+echo "PASS: AAPT2 XML compile/link, generated R.java, AIDL, DEX, zipalign, APK signing, install and launch ($VERSION x86_64)"
