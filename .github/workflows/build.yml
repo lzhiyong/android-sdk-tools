@@ -165,6 +165,14 @@ jobs:
         with:
           version: ${{ env.ZIG_VERSION }}
 
+      - name: Apply AAPT2 C++20 compatibility fix
+        run: |
+          set -euo pipefail
+          AAPT2_COMPILE="src/base/tools/aapt2/cmd/Compile.cpp"
+          if [ -f "$AAPT2_COMPILE" ]; then
+            sed -i "s/path_data\\.name\\.contains('.')/path_data.name.find('.') != std::string::npos/" "$AAPT2_COMPILE"
+          fi
+
       - name: Build
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
