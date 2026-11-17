@@ -126,7 +126,7 @@ def main():
         # Keep order while removing duplicate candidates.
         build_tools_versions = list(dict.fromkeys(build_tools_versions))
         build_tools_urls = [
-            f"https://dl.google.com/android/repository/build-tools_r{version}_linux.zip"
+            f"https://dl.google.com/android/repository/build-tools_r{version}-linux.zip"
             for version in build_tools_versions
         ]
         download_first_available(build_tools_urls, bt_zip)
