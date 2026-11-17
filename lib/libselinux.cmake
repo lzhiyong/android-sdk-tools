@@ -39,6 +39,7 @@ add_library(libselinux STATIC
     ${SRC}/selinux/libselinux/src/getenforce.c
     ${SRC}/selinux/libselinux/src/getfilecon.c
     ${SRC}/selinux/libselinux/src/getpeercon.c
+    ${SRC}/selinux/libselinux/src/hashtab.c
     ${SRC}/selinux/libselinux/src/init.c
     ${SRC}/selinux/libselinux/src/label.c
     ${SRC}/selinux/libselinux/src/label_backends_android.c
