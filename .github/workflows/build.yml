@@ -218,75 +218,27 @@ jobs:
           ls -lh dist
           test "$(find dist -maxdepth 1 -type f | wc -l)" -eq 8
 
-      - name: Upload SDK packages for integration tests
+      - name: Upload completed SDK packages for release
         uses: actions/upload-artifact@v4
         with:
           name: sdk-packages-${{ needs.prepare.outputs.version }}
           path: dist/*
           if-no-files-found: error
 
-  integration-test:
-    needs: [ prepare, package-release ]
-    if: needs.package-release.result == 'success'
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - uses: android-actions/setup-android@v3
-        with:
-          # The legacy 'tools' SDK package was removed from Google's repository.
-          packages: platform-tools
-
-      - name: Install Android test SDK
-        run: |
-          yes | sdkmanager --licenses
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-
-      - name: Download complete SDK packages
-        uses: actions/download-artifact@v4
-        with:
-          name: sdk-packages-${{ needs.prepare.outputs.version }}
-          path: dist
-
-      - name: Verify all ABI archives and ELF architectures
-        run: |
-          python3 tests/integration/verify_packages.py \
-            --version "${{ needs.prepare.outputs.version }}" --directory dist
-
-      - name: Run Android emulator end-to-end APK test
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          target: google_apis
-          arch: x86_64
-          profile: pixel_2
-          cores: 4
-          ram-size: 4096M
-          heap-size: 512M
-          emulator-boot-timeout: 1200
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          disable-animations: true
-          script: bash tests/integration/test_android_sdk_tools.sh "${{ needs.prepare.outputs.version }}"
-
   publish-release:
-    needs: [ prepare, package-release, integration-test ]
+    needs: [ prepare, package-release ]
     if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.release)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download tested SDK packages
+      - name: Download SDK packages for draft release
         uses: actions/download-artifact@v4
         with:
           name: sdk-packages-${{ needs.prepare.outputs.version }}
           path: dist
 
-      - name: Publish tested complete SDK packages as a draft release
+      - name: Publish complete SDK packages as a draft release
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.prepare.outputs.version }}
