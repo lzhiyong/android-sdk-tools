@@ -115,6 +115,7 @@ endif()
 # ADB source layout differs across platform-tools snapshots. Keep only
 # translation units that exist in the checked-out ADB revision.
 set(ADB_CORE_SOURCE_CANDIDATES
+    ${SRC}/adb/transport_local.cpp
     ${SRC}/adb/adb.cpp
     ${SRC}/adb/adb_io.cpp
     ${SRC}/adb/adb_listeners.cpp
