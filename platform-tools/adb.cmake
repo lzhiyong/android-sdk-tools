@@ -143,6 +143,8 @@ set(ADB_CORE_SOURCE_CANDIDATES
     ${SRC}/adb/client/transport_local.cpp
     ${SRC}/adb/client/mdnsresponder_client.cpp
     ${SRC}/adb/client/mdns_utils.cpp
+    ${SRC}/adb/client/discovered_services.cpp
+    ${SRC}/adb/client/mdns_tracker.cpp
     ${SRC}/adb/client/transport_mdns.cpp
     ${SRC}/adb/client/transport_usb.cpp
     ${SRC}/adb/client/pairing/pairing_client.cpp
