@@ -203,7 +203,9 @@ target_include_directories(libadb_crypto PRIVATE
     ${SRC}/boringssl/include
     ${SRC}/core/libcrypto_utils/include
     ${SRC}/libbase/include
-    ${SRC}/protobuf/src
+        ${SRC}/protobuf/src
+    ${SRC}/protobuf/third_party/utf8_range
+    ${SRC}/abseil-cpp
     )
 
 add_library(libadb_tls_connection STATIC
@@ -227,7 +229,9 @@ target_include_directories(libadb_pairing_connection PRIVATE
     ${SRC}/adb/tls/include
     ${SRC}/libbase/include
     ${SRC}/boringssl/include
-    ${SRC}/protobuf/src
+        ${SRC}/protobuf/src
+    ${SRC}/protobuf/third_party/utf8_range
+    ${SRC}/abseil-cpp
     )
 
 add_library(libadb_pairing_auth STATIC
@@ -238,7 +242,9 @@ target_include_directories(libadb_pairing_auth PRIVATE
     ${SRC}/adb/pairing_auth/include
     ${SRC}/libbase/include
     ${SRC}/boringssl/include
-    ${SRC}/protobuf/src
+        ${SRC}/protobuf/src
+    ${SRC}/protobuf/third_party/utf8_range
+    ${SRC}/abseil-cpp
     )
 
 add_library(libadb_sysdeps STATIC
@@ -260,7 +266,9 @@ target_include_directories(libfastdeploy PRIVATE
     ${SRC}/adb
     ${SRC}/core/libcutils/include
     ${SRC}/libbase/include
-    ${SRC}/protobuf/src
+        ${SRC}/protobuf/src
+    ${SRC}/protobuf/third_party/utf8_range
+    ${SRC}/abseil-cpp
     ${SRC}/boringssl/include
     )
 
@@ -298,6 +306,9 @@ target_include_directories(adb PRIVATE
     ${SRC}/adb
     ${SRC}/openscreen
     ${SRC}/adb/proto
+    ${SRC}/protobuf/src
+    ${SRC}/protobuf/third_party/utf8_range
+    ${SRC}/abseil-cpp
     ${SRC}/adb/fastdeploy/deployagent
     ${SRC}/lz4/lib
     ${SRC}/zstd/lib
