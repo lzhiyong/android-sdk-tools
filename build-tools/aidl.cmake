@@ -84,6 +84,7 @@ add_executable(aidl
     )
     
 target_include_directories(aidl PRIVATE
+    ${SRC}/aidl/include
     ${SRC}/libbase/include
     ${SRC}/fmtlib/include
     ${SRC}/googletest/googletest/include
