@@ -24,6 +24,9 @@ endif()
 
 project(sdk-tools C CXX ASM)
 
+# Android NDK has no glibc getrandom feature macros; Expat uses the kernel entropy device.
+add_compile_definitions(XML_DEV_URANDOM)
+
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 20)
 
