@@ -115,12 +115,10 @@ add_subdirectory(src/zstd/build/cmake EXCLUDE_FROM_ALL)
 add_subdirectory(src/lz4/build/cmake EXCLUDE_FROM_ALL)
 add_subdirectory(src/brotli EXCLUDE_FROM_ALL)
 # Abseil adds the Android system library "log" to its link interface.
-# This project builds fully static Android executables, so bind that dependency
-# to the bundled static liblog target instead of NDK's shared-only liblog.so.
-if(ANDROID AND NOT TARGET log)
-    add_library(log INTERFACE)
-    set(SDK_BUNDLED_ABSL_LOG TRUE)
-endif()
+# Keep its NDK-provided log target, but make -llog resolve to our bundled
+# static liblog archive. The NDK toolchain may already define an imported
+# target named "log", so creating a replacement interface target is not
+# reliable.
 add_subdirectory(src/abseil-cpp EXCLUDE_FROM_ALL)
 add_subdirectory(src/protobuf EXCLUDE_FROM_ALL)
 add_subdirectory(src/googletest EXCLUDE_FROM_ALL)
@@ -129,9 +127,15 @@ add_subdirectory(src/tinyxml2 EXCLUDE_FROM_ALL)
 # building sdk-tools
 add_subdirectory(lib)
 
-if(SDK_BUNDLED_ABSL_LOG)
-    target_link_libraries(log INTERFACE liblog)
+if(ANDROID)
+    # liblog is built from AOSP sources above. Give the archive the canonical
+    # liblog.a filename and add its output directory to the linker search path
+    # so Abseil's -llog resolves to this static archive instead of the NDK's
+    # shared-only liblog.so (which cannot be used by a fully static link).
+    set_target_properties(liblog PROPERTIES OUTPUT_NAME log)
+    link_directories("${CMAKE_BINARY_DIR}/lib")
 endif()
+
 add_subdirectory(build-tools)
 add_subdirectory(platform-tools)
 add_subdirectory(others)
