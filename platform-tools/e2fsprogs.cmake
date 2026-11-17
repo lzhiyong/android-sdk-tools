@@ -114,6 +114,8 @@ target_include_directories(libext2_uuid PRIVATE ${INCLUDES})
 # libext2fs
 add_library(libext2fs STATIC
     ${SRC}/e2fsprogs/lib/ext2fs/ext2_err.c
+    ${SRC}/e2fsprogs/lib/ext2fs/getenv.c
+    ${SRC}/e2fsprogs/lib/ext2fs/orphan.c
     ${SRC}/e2fsprogs/lib/ext2fs/alloc.c
     ${SRC}/e2fsprogs/lib/ext2fs/alloc_sb.c
     ${SRC}/e2fsprogs/lib/ext2fs/alloc_stats.c
@@ -201,6 +203,7 @@ target_include_directories(libext2fs PRIVATE ${INCLUDES})
 # libext2_misc
 add_library(libext2_misc STATIC 
     ${SRC}/e2fsprogs/misc/create_inode.c
+    ${SRC}/e2fsprogs/misc/create_inode_libarchive.c
     )
 target_include_directories(libext2_misc PRIVATE ${INCLUDES})
 
