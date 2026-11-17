@@ -168,7 +168,7 @@ def main():
                     if data.startswith(b"#!"):
                         _, separator, remainder = data.partition(b"\\n")
                         if separator:
-                            launcher_path.write_bytes(b"#!/system/bin/env sh\\n" + remainder)
+                            launcher_path.write_bytes(b"#!/system/bin/env sh\n" + remainder)
 
             for group, names in GROUPS.items():
                 destination_root = pt_root if group == "platform-tools" else bt_root
