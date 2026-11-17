@@ -698,7 +698,7 @@ def ensure_libprocessgroup_string_contains_compat():
     if not path.exists():
         raise RuntimeError('libprocessgroup util.cpp not found: {}'.format(path))
     source = path.read_text()
-    pattern = re.compile(r'([A-Za-z_][A-Za-z0-9_]*(?:(?:\\.|->)[A-Za-z_][A-Za-z0-9_]*)*)\\.contains\\(([^()]*)\\)')
+    pattern = re.compile(r'([A-Za-z_]\w*)\.contains\(([^()]*)\)')
     fixed, count = pattern.subn(
         lambda match: '(' + match.group(1) + '.find(' + match.group(2) + ') != std::string::npos)',
         source,
