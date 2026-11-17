@@ -275,6 +275,139 @@ def ensure_libbase_ndk_private_property_api():
         raise RuntimeError('libbase private property declarations were not enabled in {}'.format(path))
 
 
+
+def ensure_libbase_resize_and_overwrite_compat():
+    """Replace C++23 basic_string::resize_and_overwrite with C++17-compatible code."""
+    path = ROOT / 'src/libbase/file.cpp'
+    if not path.exists():
+        raise RuntimeError('libbase file.cpp not found: {}'.format(path))
+    text = path.read_text()
+    marker = '->resize_and_overwrite('
+    if marker not in text:
+        if 'read_file_contents' in text:
+            return
+        raise RuntimeError('cannot locate resize_and_overwrite in {}'.format(path))
+
+    start = text.find(marker)
+    receiver_match = re.search(r'([A-Za-z_][A-Za-z0-9_]*)\s*
+    inc = ROOT / 'src/incremental_delivery/sysprop/include'
+    inc.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(ROOT / 'patches/misc/IncrementalProperties.sysprop.h', inc)
+    shutil.copy2(ROOT / 'patches/misc/IncrementalProperties.sysprop.cpp', inc.parent)
+
+    shutil.copy2(ROOT / 'patches/misc/deployagent.inc', ROOT / 'src/adb/fastdeploy/deployagent')
+    shutil.copy2(ROOT / 'patches/misc/deployagentscript.inc', ROOT / 'src/adb/fastdeploy/deployagent')
+
+    shutil.copy2(VERSION_HEADER, ROOT / 'src/soong/cc/libbuildversion/include')
+
+    aapt2 = 'src/base/tools/aapt2/'
+    replace_in_file(aapt2 + 'ApkInfo.proto', 'frameworks/base/tools/aapt2/Resources.proto', 'Resources.proto')
+    replace_in_file(aapt2 + 'Resources.proto', 'frameworks/base/tools/aapt2/Configuration.proto', 'Configuration.proto')
+    replace_in_file(aapt2 + 'ResourcesInternal.proto', 'frameworks/base/tools/aapt2/Configuration.proto', 'Configuration.proto')
+    replace_in_file(aapt2 + 'ResourcesInternal.proto', 'frameworks/base/tools/aapt2/Resources.proto', 'Resources.proto')
+
+    replace_in_file('src/abseil-cpp/CMakeLists.txt', '/usr/src/googletest', '${CMAKE_SOURCE_DIR}/src/googletest')
+
+    # symlink googletest to boringssl/**/googletest
+    dest = ROOT / 'src/boringssl/src/third_party/googletest'
+    if dest.parent.exists() and not dest.exists():
+        dest.symlink_to(ROOT / 'src/googletest')
+
+    # the source patches only apply to specific versions, apply them when possible
+    for patch in sorted((ROOT / 'patches').rglob('*.patch')):
+        print('patch {}: {}'.format(patch.relative_to(ROOT), apply_patch(patch)))
+
+    ensure_art_build_defines()
+    ensure_openscreen_task_runner_compat()
+    ensure_art_metrics_memory_order_compat()
+    ensure_art_hash_set_allocator_compat()
+    ensure_libbase_ndk_private_property_api()
+    ensure_libbase_resize_and_overwrite_compat()
+
+
+def main():
+    version = tools_version()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--tags', default='platform-tools-{}'.format(version),
+                        help='git tag or branch of the AOSP repositories, default is platform-tools-{} '
+                             '(from patches/misc/platform_tools_version.h)'.format(version))
+    parser.add_argument('--jobs', type=int, default=8, help='clone N repositories in parallel')
+    parser.add_argument('--retries', type=int, default=3, help='retry times of a failed clone')
+    parser.add_argument('--skip-patch', action='store_true', help='only clone, do not patch the sources')
+    args = parser.parse_args()
+
+    # check necessary packages
+    for command in ('git', 'patch', 'go', 'bison', 'flex'):
+        check(command)
+
+    repos = json.loads((ROOT / 'repository.json').read_text())
+    print('fetching sources: {}'.format(args.tags))
+    errors = []
+    with ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
+        futures = [pool.submit(clone, repo, args.tags, args.retries) for repo in repos]
+        for future in as_completed(futures):
+            try:
+                print(future.result(), flush=True)
+            except RuntimeError as e:
+                errors.append(str(e))
+    if errors:
+        sys.exit('\n'.join(errors))
+
+    if not args.skip_patch:
+        patches()
+
+    print('download success!!')
+
+
+if __name__ == '__main__':
+    main()
+, text[:start])
+    if receiver_match is None:
+        raise RuntimeError('cannot identify resize_and_overwrite receiver in {}'.format(path))
+    receiver = receiver_match.group(1)
+    open_paren = start + len('->resize_and_overwrite')
+    if text[open_paren] != '(':
+        raise RuntimeError('malformed resize_and_overwrite invocation in {}'.format(path))
+
+    depth = 0
+    comma = -1
+    close_paren = -1
+    for index in range(open_paren, len(text)):
+        char = text[index]
+        if char == '(':
+            depth += 1
+        elif char == ')':
+            depth -= 1
+            if depth == 0:
+                close_paren = index
+                break
+        elif char == ',' and depth == 1 and comma < 0:
+            comma = index
+    if comma < 0 or close_paren < 0:
+        raise RuntimeError('cannot parse resize_and_overwrite arguments in {}'.format(path))
+
+    size_expression = text[open_paren + 1:comma].strip()
+    operation = text[comma + 1:close_paren].strip()
+    if not operation.startswith('[') or 'noexcept' not in operation or '{' not in operation:
+        raise RuntimeError('unrecognized resize_and_overwrite lambda in {}'.format(path))
+
+    replacement = (
+        'auto read_file_contents = ' + operation + ';\n'
+        '    ' + receiver + '->resize(' + size_expression + ');\n'
+        '    ' + receiver + '->resize(read_file_contents(' + receiver + '->data(), '
+        + receiver + '->size()))'
+    )
+    text = text[:receiver_match.start(1)] + replacement + text[close_paren + 1:]
+    path.write_text(text)
+
+    verified = path.read_text()
+    if marker in verified:
+        raise RuntimeError('C++23 resize_and_overwrite remains in {}'.format(path))
+    if 'read_file_contents(' not in verified:
+        raise RuntimeError('C++17 resize/read fallback was not written to {}'.format(path))
+    print('libbase: replaced resize_and_overwrite with resize plus mutable-buffer callback', flush=True)
+
+
 def patches():
     inc = ROOT / 'src/incremental_delivery/sysprop/include'
     inc.mkdir(parents=True, exist_ok=True)
