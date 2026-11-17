@@ -133,7 +133,7 @@ def main():
         # Android Gradle Plugin 9.x still specifies Build Tools 36.0.0 as its
         # default for API 37; no official Build Tools 37.x archive is published.
         if int(major) >= 36:
-            build_tools_versions.append("36.0.0")
+            build_tools_versions.append("36")
         # Keep order while removing duplicate candidates.
         build_tools_versions = list(dict.fromkeys(build_tools_versions))
         build_tools_urls = [
