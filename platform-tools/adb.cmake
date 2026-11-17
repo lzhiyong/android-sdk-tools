@@ -135,6 +135,9 @@ set(ADB_CORE_SOURCE_CANDIDATES
     ${SRC}/adb/client/auth.cpp
     ${SRC}/adb/client/adb_wifi.cpp
     ${SRC}/adb/client/usb_libusb.cpp
+    ${SRC}/adb/client/emulator.cpp
+    ${SRC}/adb/client/emulator_connection.cpp
+    ${SRC}/adb/client/attached_devices.cpp
     ${SRC}/adb/client/transport_local.cpp
     ${SRC}/adb/client/mdnsresponder_client.cpp
     ${SRC}/adb/client/mdns_utils.cpp
@@ -155,6 +158,7 @@ endforeach()
 
 add_library(libadb STATIC
     ${ADB_CORE_SOURCES}
+    ${ADB_OPENSCREEN_SOURCES}
     )
 target_compile_definitions(libadb PRIVATE 
     -D_GNU_SOURCE
