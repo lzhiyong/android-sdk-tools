@@ -57,9 +57,14 @@ endif()
 # ========================= adb proto ============================
 
 
-# Open Screen client files are optional in newer ADB revisions, where
-# mDNS handling moved to the in-tree libadbmdns implementation.
+# Open Screen client sources vary between AOSP snapshots. Add only files
+# that are present in the selected packages/modules/adb checkout.
 set(ADB_OPENSCREEN_SOURCE_CANDIDATES
+    ${SRC}/adb/client/openscreen/mdns_service_info.cpp
+    ${SRC}/adb/client/openscreen/mdns_service_watcher.cpp
+    ${SRC}/adb/client/openscreen/platform/logging.cpp
+    ${SRC}/adb/client/openscreen/platform/task_runner.cpp
+    ${SRC}/adb/client/openscreen/platform/udp_socket.cpp
 )
 set(ADB_OPENSCREEN_SOURCES)
 foreach(source IN LISTS ADB_OPENSCREEN_SOURCE_CANDIDATES)
@@ -124,11 +129,6 @@ add_library(libadb STATIC
     ${SRC}/adb/transport.cpp
     ${SRC}/adb/transport_fd.cpp
     ${SRC}/adb/types.cpp
-    ${SRC}/adb/client/openscreen/mdns_service_info.cpp
-    ${SRC}/adb/client/openscreen/mdns_service_watcher.cpp
-    ${SRC}/adb/client/openscreen/platform/logging.cpp
-    ${SRC}/adb/client/openscreen/platform/task_runner.cpp
-    ${SRC}/adb/client/openscreen/platform/udp_socket.cpp
     ${SRC}/adb/client/auth.cpp
     ${SRC}/adb/client/adb_wifi.cpp
     ${SRC}/adb/client/usb_libusb.cpp
