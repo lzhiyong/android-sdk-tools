@@ -98,6 +98,18 @@ set(TOOL_SOURCE
     ${SRC}/base/tools/aapt2/cmd/Util.cpp
     )
     
+# Newer AOSP snapshots add feature-flag resource processing translation units.
+# Include them only when present to keep older snapshots buildable.
+set(AAPT2_FEATURE_FLAG_SOURCE_CANDIDATES
+    ${SRC}/base/tools/aapt2/link/FlaggedXmlVersioner.cpp
+    ${SRC}/base/tools/aapt2/link/FlagDisabledResourceRemover.cpp
+)
+foreach(source IN LISTS AAPT2_FEATURE_FLAG_SOURCE_CANDIDATES)
+    if(EXISTS "${source}")
+        list(APPEND TOOL_SOURCE "${source}")
+    endif()
+endforeach()
+    
 # build the host static library: aapt2
 add_library(libaapt2 STATIC
     ${SRC}/base/tools/aapt2/compile/IdAssigner.cpp
