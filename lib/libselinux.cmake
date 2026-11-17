@@ -75,6 +75,7 @@ target_compile_definitions(libselinux PRIVATE
     -DNO_X_BACKEND 
     -DNO_DB_BACKEND
     -DPCRE2_CODE_UNIT_WIDTH=8
+    -DHAVE_REALLOCARRAY
     $<$<BOOL:${ANDROID}>:HAVE_STRLCPY>
     )
     
