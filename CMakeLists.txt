@@ -118,6 +118,30 @@ add_subdirectory(src/lz4/build/cmake EXCLUDE_FROM_ALL)
 set(BROTLI_BUILD_FOR_PACKAGE ON CACHE BOOL "" FORCE)
 set(BROTLI_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
 add_subdirectory(src/brotli EXCLUDE_FROM_ALL)
+
+# Some AOSP Brotli revisions do not expose the package static targets to
+# the parent project even when BROTLI_BUILD_FOR_PACKAGE is requested.
+# Define the three archives explicitly when the upstream targets are absent.
+if(NOT TARGET brotlicommon-static OR NOT TARGET brotlidec-static OR NOT TARGET brotlienc-static)
+    file(GLOB_RECURSE BROTLI_COMMON_SOURCES CONFIGURE_DEPENDS ${SRC}/brotli/c/common/*.c)
+    file(GLOB_RECURSE BROTLI_DEC_SOURCES CONFIGURE_DEPENDS ${SRC}/brotli/c/dec/*.c)
+    file(GLOB_RECURSE BROTLI_ENC_SOURCES CONFIGURE_DEPENDS ${SRC}/brotli/c/enc/*.c)
+
+    if(NOT TARGET brotlicommon-static)
+        add_library(brotlicommon-static STATIC ${BROTLI_COMMON_SOURCES})
+        target_include_directories(brotlicommon-static PUBLIC ${SRC}/brotli/c/include)
+    endif()
+    if(NOT TARGET brotlidec-static)
+        add_library(brotlidec-static STATIC ${BROTLI_DEC_SOURCES})
+        target_include_directories(brotlidec-static PUBLIC ${SRC}/brotli/c/include)
+        target_link_libraries(brotlidec-static PUBLIC brotlicommon-static)
+    endif()
+    if(NOT TARGET brotlienc-static)
+        add_library(brotlienc-static STATIC ${BROTLI_ENC_SOURCES})
+        target_include_directories(brotlienc-static PUBLIC ${SRC}/brotli/c/include)
+        target_link_libraries(brotlienc-static PUBLIC brotlicommon-static)
+    endif()
+endif()
 # Abseil adds the Android system library "log" to its link interface.
 # Keep its NDK-provided log target, but make -llog resolve to our bundled
 # static liblog archive. The NDK toolchain may already define an imported
