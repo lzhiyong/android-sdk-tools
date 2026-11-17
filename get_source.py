@@ -337,6 +337,125 @@ def ensure_libbase_resize_and_overwrite_compat():
         raise RuntimeError('C++17 resize/read fallback was not written to {}'.format(path))
     print('libbase: replaced resize_and_overwrite with resize plus mutable-buffer callback', flush=True)
 
+
+
+def ensure_bionic_private_property_headers():
+    """Expose Bionic private property serial APIs before including the public header."""
+    sources = (
+        'src/libbase/properties.cpp',
+        'src/logging/liblog/properties.cpp',
+        'src/core/libcutils/trace-dev.inc',
+    )
+    public_include = '#include <sys/system_properties.h>'
+    private_include = '#include <sys/_system_properties.h>'
+    opt_in = '#define _REALLY_INCLUDE_SYS__SYSTEM_PROPERTIES_H_'
+
+    for relative in sources:
+        path = ROOT / relative
+        if not path.exists():
+            continue
+        text = path.read_text()
+        if public_include not in text:
+            continue
+
+        # Normalize any earlier insertion: the opt-in must be defined before
+        # system_properties.h is first included, otherwise the private header
+        # exposes only the public overloads.
+        text = text.replace(opt_in + '\n', '')
+        text = text.replace(private_include + '\n', '')
+        text = text.replace(
+            public_include,
+            opt_in + '\n' + public_include + '\n' + private_include,
+            1,
+        )
+        path.write_text(text)
+
+        verified = path.read_text()
+        expected = opt_in + '\n' + public_include + '\n' + private_include
+        if expected not in verified:
+            raise RuntimeError('Bionic private property header order is incorrect in {}'.format(path))
+        print('bionic: enabled private property serial APIs in {}'.format(relative), flush=True)
+
+
+
+def ensure_liblog_api37_ndk_compat():
+    """Keep the API-30 liblog logger independent of the API-37 public symbol."""
+    path = ROOT / 'src/logging/liblog/logger_write.cpp'
+    if not path.exists():
+        raise RuntimeError('liblog logger_write.cpp not found: {}'.format(path))
+    text = path.read_text()
+    public_name = '__android_log_logd_logger_with_timestamp'
+    impl_name = 'logd_logger_with_timestamp_impl'
+    old_call = public_name + '(log_message, nullptr);'
+
+    if impl_name not in text:
+        signature = 'void ' + public_name + '('
+        signature_pos = text.find(signature)
+        if signature_pos < 0:
+            raise RuntimeError('cannot locate {} definition in {}'.format(public_name, path))
+        body_open = text.find('{', signature_pos)
+        if body_open < 0:
+            raise RuntimeError('cannot locate timestamp logger function body in {}'.format(path))
+        depth = 0
+        body_close = -1
+        for index in range(body_open, len(text)):
+            if text[index] == '{':
+                depth += 1
+            elif text[index] == '}':
+                depth -= 1
+                if depth == 0:
+                    body_close = index
+                    break
+        if body_close < 0:
+            raise RuntimeError('unterminated timestamp logger function in {}'.format(path))
+
+        text = text[:signature_pos] + text[signature_pos:].replace(
+            signature, 'static void ' + impl_name + '(', 1
+        )
+        if old_call not in text:
+            raise RuntimeError('cannot locate API-30 logger call in {}'.format(path))
+        text = text.replace(old_call, impl_name + '(log_message, nullptr);', 1)
+
+        wrapper = (
+            '\n\nvoid ' + public_name + '(\n'
+            '    const struct __android_log_message* log_message,\n'
+            '    const struct timespec* timestamp) {\n'
+            '  ' + impl_name + '(log_message, timestamp);\n'
+            '}\n'
+        )
+        impl_pos = text.find('static void ' + impl_name + '(')
+        impl_open = text.find('{', impl_pos)
+        depth = 0
+        impl_close = -1
+        for index in range(impl_open, len(text)):
+            if text[index] == '{':
+                depth += 1
+            elif text[index] == '}':
+                depth -= 1
+                if depth == 0:
+                    impl_close = index
+                    break
+        if impl_close < 0:
+            raise RuntimeError('unterminated private timestamp logger implementation in {}'.format(path))
+        text = text[:impl_close + 1] + wrapper + text[impl_close + 1:]
+
+        wrapper_pos = text.find('void __android_log_logd_logger(')
+        if wrapper_pos < 0:
+            raise RuntimeError('cannot locate API-30 logger wrapper in {}'.format(path))
+        declaration = (
+            'static void ' + impl_name + '(\n'
+            '    const struct __android_log_message* log_message,\n'
+            '    const struct timespec* timestamp);\n\n'
+        )
+        text = text[:wrapper_pos] + declaration + text[wrapper_pos:]
+        path.write_text(text)
+
+    verified = path.read_text()
+    if old_call in verified:
+        raise RuntimeError('API-30 logger still calls API-37 public API in {}'.format(path))
+    if 'static void ' + impl_name + '(' not in verified:
+        raise RuntimeError('private timestamp logger implementation missing in {}'.format(path))
+
 def patches():
     inc = ROOT / 'src/incremental_delivery/sysprop/include'
     inc.mkdir(parents=True, exist_ok=True)
@@ -370,6 +489,8 @@ def patches():
     ensure_art_metrics_memory_order_compat()
     ensure_art_hash_set_allocator_compat()
     ensure_libbase_ndk_private_property_api()
+    ensure_bionic_private_property_headers()
+    ensure_liblog_api37_ndk_compat()
     ensure_libbase_resize_and_overwrite_compat()
 
 
