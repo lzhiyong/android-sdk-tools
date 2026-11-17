@@ -198,11 +198,27 @@ add_library(libext2fs STATIC
     )
 target_include_directories(libext2fs PRIVATE ${INCLUDES})
 
+# Newer e2fsprogs snapshots split these helpers into additional translation units.
+# Add them only when the selected source snapshot provides them.
+foreach(source
+    ${SRC}/e2fsprogs/lib/ext2fs/getenv.c
+    ${SRC}/e2fsprogs/lib/ext2fs/orphan.c
+)
+    if(EXISTS "${source}")
+        target_sources(libext2fs PRIVATE "${source}")
+    endif()
+endforeach()
+
 # libext2_misc
 add_library(libext2_misc STATIC 
     ${SRC}/e2fsprogs/misc/create_inode.c
     )
 target_include_directories(libext2_misc PRIVATE ${INCLUDES})
+
+# Tar population support is split out in newer e2fsprogs snapshots.
+if(EXISTS "${SRC}/e2fsprogs/misc/create_inode_libarchive.c")
+    target_sources(libext2_misc PRIVATE ${SRC}/e2fsprogs/misc/create_inode_libarchive.c)
+endif()
 
 # mke2fs
 add_executable(mke2fs

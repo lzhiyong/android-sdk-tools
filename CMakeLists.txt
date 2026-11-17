@@ -93,6 +93,14 @@ endif()
 
 # thrid-party libraries
 add_subdirectory(src/boringssl EXCLUDE_FROM_ALL)
+# BoringSSL's standalone CMake currently pins its targets to GNU C++14,
+# while its span implementation requires C++17 type traits.
+if(TARGET crypto)
+    target_compile_options(crypto PRIVATE -std=gnu++17)
+endif()
+if(TARGET ssl)
+    target_compile_options(ssl PRIVATE -std=gnu++17)
+endif()
 add_subdirectory(src/fmtlib EXCLUDE_FROM_ALL)
 add_subdirectory(src/pcre EXCLUDE_FROM_ALL)
 add_subdirectory(src/libpng EXCLUDE_FROM_ALL)

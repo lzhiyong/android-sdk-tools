@@ -1,0 +1,9 @@
+--- a/core/libprocessgroup/cgroup_map.cpp
++++ b/core/libprocessgroup/cgroup_map.cpp
+@@ -1,3 +1,5 @@
+-            if (__builtin_available(android 36, *)) {
++#if defined(__ANDROID_API__) && __ANDROID_API__ >= 36
++            if (__builtin_available(android 36, *)) {
+                 max_activation_depth = ACgroupController_getMaxActivationDepth(controller);
+             }
++#endif

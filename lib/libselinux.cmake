@@ -39,6 +39,7 @@ add_library(libselinux STATIC
     ${SRC}/selinux/libselinux/src/getenforce.c
     ${SRC}/selinux/libselinux/src/getfilecon.c
     ${SRC}/selinux/libselinux/src/getpeercon.c
+    ${SRC}/selinux/libselinux/src/hashtab.c
     ${SRC}/selinux/libselinux/src/init.c
     ${SRC}/selinux/libselinux/src/label.c
     ${SRC}/selinux/libselinux/src/label_backends_android.c
@@ -75,6 +76,8 @@ target_compile_definitions(libselinux PRIVATE
     -DNO_X_BACKEND 
     -DNO_DB_BACKEND
     -DPCRE2_CODE_UNIT_WIDTH=8
+    -DHAVE_REALLOCARRAY
+    $<$<BOOL:${ANDROID}>:HAVE_STRLCPY>
     )
     
 target_include_directories(libselinux PRIVATE
