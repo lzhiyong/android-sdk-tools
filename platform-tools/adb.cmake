@@ -60,6 +60,7 @@ endif()
 # Open Screen client sources vary between AOSP snapshots. Add only files
 # that are present in the selected packages/modules/adb checkout.
 set(ADB_OPENSCREEN_SOURCE_CANDIDATES
+    ${SRC}/adb/client/openscreen/mdns_service.cpp
     ${SRC}/adb/client/openscreen/mdns_service_info.cpp
     ${SRC}/adb/client/openscreen/mdns_service_watcher.cpp
     ${SRC}/adb/client/openscreen/platform/logging.cpp
