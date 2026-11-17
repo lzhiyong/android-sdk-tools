@@ -751,6 +751,23 @@ def ensure_libprocessgroup_string_contains_compat():
         raise RuntimeError('expected C++23 string::contains call not found in {}'.format(path))
 
 
+def ensure_art_aconfig_headers():
+    """Provide the aconfig-generated ART flag headers for standalone CMake builds."""
+    headers = {
+        'com_android_art_native_flags.h': ROOT / 'src/art/libartbase/base/com_android_art_native_flags.h',
+        'com_android_art_rw_flags.h': ROOT / 'src/art/libartbase/base/com_android_art_rw_flags.h',
+    }
+    for name, target in headers.items():
+        source = ROOT / 'patches/include' / name
+        if not source.exists():
+            raise RuntimeError('ART aconfig compatibility header missing: {}'.format(source))
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+        if not target.exists():
+            raise RuntimeError('failed to install ART aconfig header: {}'.format(target))
+    print('ART: installed standalone aconfig flag headers', flush=True)
+
+
 def main():
     version = tools_version()
     parser = argparse.ArgumentParser()
@@ -784,6 +801,7 @@ def main():
         ensure_expat_android_entropy_source()
         ensure_androidfw_generated_resource_header()
         ensure_libprocessgroup_string_contains_compat()
+        ensure_art_aconfig_headers()
         ensure_androidfw_combined_iterator_swap_compat()
         ensure_androidfw_locale_constexpr_compat()
         ensure_libbase_resize_and_overwrite_compat()
