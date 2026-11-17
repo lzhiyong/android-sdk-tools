@@ -302,6 +302,9 @@ add_executable(adb
     )
 target_include_directories(adb PRIVATE
     ${SRC}/adb
+    ${SRC}/protobuf/src
+    ${SRC}/protobuf/third_party/utf8_range
+    ${SRC}/abseil-cpp
     ${SRC}/libusb
     ${SRC}/libusb/include
     ${SRC}/openscreen
