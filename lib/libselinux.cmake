@@ -43,6 +43,7 @@ add_library(libselinux STATIC
     ${SRC}/selinux/libselinux/src/label.c
     ${SRC}/selinux/libselinux/src/label_backends_android.c
     ${SRC}/selinux/libselinux/src/label_file.c
+    ${SRC}/selinux/libselinux/src/hashtab.c
     ${SRC}/selinux/libselinux/src/label_support.c
     ${SRC}/selinux/libselinux/src/lgetfilecon.c
     ${SRC}/selinux/libselinux/src/load_policy.c
